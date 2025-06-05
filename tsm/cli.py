@@ -5,10 +5,12 @@ Traefik Service Manager (TSM) - CLI Interface
 A modern service discovery and auto-scaling tool for Traefik with Docker.
 """
 
+import os
 import sys
 from pathlib import Path
 
 import click
+from dotenv import load_dotenv
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
@@ -22,6 +24,8 @@ from .scaling import AutoScaler
 from .utils import setup_logging
 
 console = Console()
+
+load_dotenv()
 
 
 @click.group()
@@ -46,19 +50,48 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool) -> N
 
 @cli.command()
 @click.option(
-    "--compose-file", "-f", default="docker-compose.yaml", help="Docker Compose file path"
+    "--compose-file",
+    "-f",
+    default=os.environ.get("COMPOSE_FILE", "docker-compose.yaml"),
+    help="Docker Compose file path (env: COMPOSE_FILE)",
 )
 @click.option(
     "--output-dir",
     "-o",
-    default="proxy/config/dynamic",
-    help="Output directory for generated configs",
+    default=os.environ.get("OUTPUT_DIR", "proxy/config/dynamic"),
+    help="Output directory for generated configs (env: OUTPUT_DIR)",
 )
-@click.option("--domain-suffix", "-d", default=".ddev", help="Domain suffix for services")
-@click.option("--external-host", "-h", help="External host IP address")
-@click.option("--swarm-mode", is_flag=True, help="Generate for Docker Swarm mode")
-@click.option("--watch", "-w", is_flag=True, help="Watch for file changes and regenerate")
-@click.option("--default-backend-host", "-b", help="Default backend host for HTTP services")
+@click.option(
+    "--domain-suffix",
+    "-d",
+    default=os.environ.get("DOMAIN_SUFFIX", ".ddev"),
+    help="Domain suffix for services (env: DOMAIN_SUFFIX)",
+)
+@click.option(
+    "--external-host",
+    "-h",
+    default=os.environ.get("EXTERNAL_HOST"),
+    help="External host IP address (env: EXTERNAL_HOST)",
+)
+@click.option(
+    "--swarm-mode",
+    is_flag=True,
+    default=os.environ.get("SWARM_MODE", "false").lower() == "true",
+    help="Generate for Docker Swarm mode (env: SWARM_MODE)",
+)
+@click.option(
+    "--watch",
+    "-w",
+    is_flag=True,
+    default=os.environ.get("WATCH", "false").lower() == "true",
+    help="Watch for file changes and regenerate (env: WATCH)",
+)
+@click.option(
+    "--default-backend-host",
+    "-b",
+    default=os.environ.get("DEFAULT_BACKEND_HOST"),
+    help="Default backend host for HTTP services (env: DEFAULT_BACKEND_HOST)",
+)
 @click.pass_context
 def generate(
     ctx: click.Context,
