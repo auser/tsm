@@ -58,6 +58,7 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool) -> N
 @click.option("--external-host", "-h", help="External host IP address")
 @click.option("--swarm-mode", is_flag=True, help="Generate for Docker Swarm mode")
 @click.option("--watch", "-w", is_flag=True, help="Watch for file changes and regenerate")
+@click.option("--default-backend-host", "-b", help="Default backend host for HTTP services")
 @click.pass_context
 def generate(
     ctx: click.Context,
@@ -67,6 +68,7 @@ def generate(
     external_host: str | None,
     swarm_mode: bool,
     watch: bool,
+    default_backend_host: str | None,
 ) -> None:
     """Generate Traefik configuration from Docker Compose file."""
 
@@ -87,6 +89,7 @@ def generate(
         domain_suffix=domain_suffix,
         external_host=external_host,
         swarm_mode=swarm_mode,
+        default_backend_host=default_backend_host,
     )
 
     def generate_configs() -> None:

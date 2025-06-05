@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 
 from tsm.cli import cli

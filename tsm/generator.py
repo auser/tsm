@@ -80,20 +80,52 @@ class ConfigGenerator:
         # Generate service configuration
         service_config = {"loadBalancer": {"servers": []}}
         address_set = False
-        for k, v in service.labels.items():
-            if k.startswith(f"traefik.http.services.{service_name}.loadbalancer.server.address"):
-                service_config["loadBalancer"]["servers"].append({"url": v})
-                address_set = True
-            elif k.startswith(f"traefik.http.services.{service_name}.loadbalancer.server.port"):
-                if not address_set:
+        # Find all address labels
+        address_labels = [
+            (k, v)
+            for k, v in service.labels.items()
+            if k.startswith("traefik.http.services.") and k.endswith(".loadbalancer.server.address")
+        ]
+        # Prefer one matching the service name (hyphen or underscore)
+        preferred_keys = [
+            f"traefik.http.services.{service.name}.loadbalancer.server.address",
+            f"traefik.http.services.{service.name.replace('_', '-')}.loadbalancer.server.address",
+            f"traefik.http.services.{service.name.replace('-', '_')}.loadbalancer.server.address",
+        ]
+        selected_label = None
+        selected_value = None
+        for key in preferred_keys:
+            for k, v in address_labels:
+                if k == key:
+                    selected_label = k
+                    selected_value = v
+                    break
+            if selected_label:
+                break
+        # If no preferred, use the first found
+        if not selected_label and address_labels:
+            selected_label, selected_value = address_labels[0]
+        if selected_label:
+            service_config["loadBalancer"]["servers"].append({"url": selected_value})
+            address_set = True
+            self.logger.debug(
+                f"Service {service.name}: Using address from label {selected_label} = {selected_value}"
+            )
+        # If no address, check for port label
+        if not address_set:
+            for k, v in service.labels.items():
+                if k.startswith(f"traefik.http.services.{service_name}.loadbalancer.server.port"):
                     port = v
-                    # Use default_backend_host if set, else service.name
                     host = self.default_backend_host or service.name
                     url = f"http://{host}:{port}"
                     service_config["loadBalancer"]["servers"].append({"url": url})
                     address_set = True
-        if not service_config["loadBalancer"]["servers"]:
+                    self.logger.debug(f"Service {service.name}: Using port from label {k} = {v}")
+                    break
+        # If neither, fall back to main port
+        if not address_set:
             service_config = self._generate_service_config(service)
+            self.logger.debug(f"Service {service.name}: Falling back to main port logic.")
         health_check = self._generate_health_check(service)
         if health_check:
             service_config["loadBalancer"]["healthCheck"] = health_check

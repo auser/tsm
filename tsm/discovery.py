@@ -41,10 +41,19 @@ class Service(BaseModel):
 
     @property
     def main_port(self) -> int | None:
-        """Get the main service port (first port or traefik service port)."""
+        """Get the main service port: prefer Traefik label port if present, else first port."""
         if self.traefik_service_port:
+            logger.debug(
+                f"Service {self.name}: Using traefik_service_port={self.traefik_service_port} from label."
+            )
             return self.traefik_service_port
-        return self.ports[0].internal if self.ports else None
+        if self.ports:
+            logger.debug(
+                f"Service {self.name}: Using first port from ports list: {self.ports[0].internal}"
+            )
+            return self.ports[0].internal
+        logger.debug(f"Service {self.name}: No port found.")
+        return None
 
     @property
     def domain_names(self) -> list[str]:
@@ -264,16 +273,41 @@ class ServiceDiscovery:
                 traefik_config["traefik_rule"] = labels[key]
                 break
 
-        if router_name:
-            # Get service port
-            service_key = f"traefik.http.services.{router_name}.loadbalancer.server.port"
-            if service_key in labels:
-                try:
-                    traefik_config["traefik_service_port"] = int(labels[service_key])
-                except ValueError:
-                    pass
+        # Find all possible service port labels
+        port_labels = [
+            (k, v)
+            for k, v in labels.items()
+            if k.startswith("traefik.http.services.") and k.endswith(".loadbalancer.server.port")
+        ]
 
-            # Get middlewares
+        selected_port = None
+        selected_label = None
+        # Prefer port label matching router name
+        if router_name:
+            expected_key = f"traefik.http.services.{router_name}.loadbalancer.server.port"
+            for k, v in port_labels:
+                if k == expected_key:
+                    try:
+                        selected_port = int(v)
+                        selected_label = k
+                        break
+                    except ValueError:
+                        continue
+        # Otherwise, use the first available port label
+        if selected_port is None and port_labels:
+            for k, v in port_labels:
+                try:
+                    selected_port = int(v)
+                    selected_label = k
+                    break
+                except ValueError:
+                    continue
+        if selected_port is not None:
+            traefik_config["traefik_service_port"] = selected_port
+            logger.debug(f"Service port from label: {selected_label} = {selected_port}")
+
+        # Get middlewares
+        if router_name:
             middleware_key = f"traefik.http.routers.{router_name}.middlewares"
             if middleware_key in labels:
                 middlewares = labels[middleware_key].split(",")

@@ -191,7 +191,14 @@ services:
         aliases:
           - tumsnew
       rabbitmq:
-    depends_on:
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.tumsnew-router.middlewares=secure-headers
+        - traefik.http.routers.tumsnew-router.rule=Host(`tumsnew.ddev`) || Host(`tumsnew.herringbank.com`)
+        - traefik.http.services.tumsnew-service.loadbalancer.server.port=9170
+        - traefik.http.services.tumsnew-service.loadbalancer.server.address=civpldocker03
+        - traefik.http.services.tumsnew-service.loadbalancer.server.scheme=http
 
       ################################
       # NOTIFICATION SERVICE
