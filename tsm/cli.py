@@ -497,6 +497,61 @@ def version() -> None:
     console.print(table)
 
 
+@cli.command("generate-hosts")
+@click.option(
+    "--compose-file",
+    "-f",
+    default=os.environ.get("COMPOSE_FILE", "docker-compose.yaml"),
+    help="Docker Compose file path (env: COMPOSE_FILE)",
+)
+@click.option(
+    "--ip",
+    default=None,
+    help="IP address to use for hosts entries (env: HOSTS_IP). If not provided, will auto-detect local IP.",
+)
+@click.option(
+    "--output", "-o", default=None, help="Output file for hosts block (default: print to stdout)"
+)
+@click.pass_context
+def generate_hosts(
+    ctx: click.Context, compose_file: str, ip: str | None, output: str | None
+) -> None:
+    """Generate a /etc/hosts line for all service domains."""
+    import socket
+
+    from .discovery import ServiceDiscovery
+
+    compose_path = Path(compose_file)
+    if not compose_path.exists():
+        console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
+        sys.exit(1)
+    # Auto-detect IP if not provided
+    if not ip:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            ip = "127.0.0.1"
+    discovery = ServiceDiscovery()
+    services = discovery.discover_services(compose_path)
+    all_domains = set()
+    for service in services:
+        all_domains.update(service.domain_names)
+    if not all_domains:
+        console.print("[yellow]No domains found in services.[/yellow]")
+        sys.exit(0)
+    hosts_line = f"{ip} " + " ".join(sorted(all_domains))
+    if output:
+        with open(output, "w") as f:
+            f.write(hosts_line + "\n")
+        console.print(f"[green]✓ Hosts line written to {output}[/green]")
+    else:
+        console.print("[blue]Add the following line to your /etc/hosts:[/blue]")
+        console.print(hosts_line)
+
+
 def main() -> None:
     """Main entry point."""
     try:
