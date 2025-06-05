@@ -91,7 +91,7 @@ class TraefikConfig(BaseModel):
 
     # TLS configuration
     tls_enabled: bool = Field(default=True)
-    cert_resolver: str = Field(default="letsencrypt")
+    # cert_resolver: str = Field(default="letsencrypt")
 
     # Default middleware chains
     default_middleware: list[str] = Field(default=["secure-headers@file", "compress@file"])

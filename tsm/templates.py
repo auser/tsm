@@ -44,22 +44,30 @@ def create_default_configs(
         created_files.append(traefik_file)
 
     # Default config
+    config_file = _generate_config_file(base_dir, environment, force)
+    if config_file:
+        created_files.append(config_file)
+
+    return created_files
+
+
+def _generate_config_file(dir: Path, environment: str, force: bool = False) -> str:
+    """Generate a config.yml file."""
     config = {
         "environment": environment,
         "log_level": "INFO",
         "prometheus": {"url": "http://localhost:9090"},
         "docker": {"traefik_network": "traefik"},
     }
-    config_file = base_dir / "config.yml"
+    config_file = dir / "config.yml"
     if force or not config_file.exists():
         with open(config_file, "w") as f:
             yaml.dump(config, f, default_flow_style=False)
         logger.info(f"Created {config_file}")
-        created_files.append(config_file)
+        return config_file
     else:
         logger.info(f"Skipped {config_file} (already exists)")
-
-    return created_files
+        return None
 
 
 def _generate_docker_compose_file(name: str, dir: Path, force: bool = False) -> str:

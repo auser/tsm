@@ -362,14 +362,28 @@ def status(service: str | None, detailed: bool, format: str) -> None:
 
 @cli.command("init-config")
 @click.option("--name", "-n", default="proxy", help="Name of the project")
-@click.option("--force", is_flag=True, help="Overwrite existing files")
-def init_config(name: str, force: bool) -> None:
+@click.option("--environment", "-e", default="development", help="Environment")
+@click.option("--compose-file", "-f", default="docker-compose.yml", help="Docker Compose file path")
+@click.option("--default-backend-host", "-b", help="Default backend host for HTTP services")
+def init_config(
+    name: str, environment: str, compose_file: str, default_backend_host: str | None
+) -> None:
     """Initialize default configuration files."""
 
-    from .templates import create_default_configs
+    compose_path = Path(compose_file)
+    if not compose_path.exists():
+        console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
+        sys.exit(1)
 
     try:
-        created_files = create_default_configs(name=name, force=force)
+        discovery = ServiceDiscovery()
+        services = discovery.discover_services(compose_path)
+
+        generator = ConfigGenerator(
+            name=name, environment=environment, default_backend_host=default_backend_host
+        )
+        base_dir = Path.cwd() / name
+        created_files = generator.write_config_files(output_dir=base_dir, services=services)
 
         console.print("[green]✓ Default configuration files created:[/green]")
         for file_path in created_files:

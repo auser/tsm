@@ -16,10 +16,6 @@ services:
       - --providers.file.watch=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.letsencrypt.acme.email=admin@herringbank.com
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --metrics.prometheus=true
       - --metrics.prometheus.addentrypointslabels=true
       - --metrics.prometheus.addserviceslabels=true
@@ -32,7 +28,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./proxy/config:/etc/traefik:ro
-      - traefik_letsencrypt:/letsencrypt
     networks:
       - traefik
       - monitoring
@@ -40,7 +35,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.ddev`) || Host(`traefik.herringbank.com`)"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
 
   # Consul for service discovery and configuration
   consul:
@@ -61,7 +55,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.consul.rule=Host(`consul.ddev`) || Host(`consul.herringbank.com`)"
-      - "traefik.http.routers.consul.tls.certresolver=letsencrypt"
       - "traefik.http.services.consul.loadbalancer.server.port=8500"
 
   # Prometheus for metrics collection
@@ -89,7 +82,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.ddev`) || Host(`prometheus.herringbank.com`)"
-      - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
       - "traefik.http.routers.prometheus.middlewares=auth@file"
 
@@ -115,7 +107,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.ddev`) || Host(`grafana.herringbank.com`)"
-      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
   # AlertManager for alerting
@@ -138,7 +129,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.ddev`) || Host(`alertmanager.herringbank.com`)"
-      - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
       - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
       - "traefik.http.routers.alertmanager.middlewares=auth@file"
 
@@ -182,12 +172,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.ddev`) || Host(`cadvisor.herringbank.com`)"
-      - "traefik.http.routers.cadvisor.tls.certresolver=letsencrypt"
       - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
 
 volumes:
-  traefik_letsencrypt:
-    name: traefik_letsencrypt
   consul_data:
     name: consul_data
   prometheus_data:

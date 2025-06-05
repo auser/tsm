@@ -112,7 +112,7 @@ class ServiceDiscovery:
         networks = self._parse_networks(config.get("networks", []))
 
         # Parse labels
-        labels = config.get("labels", [])
+        labels = config.get("deploy", {}).get("labels", [])
         if isinstance(labels, list):
             # Convert list format to dict
             label_dict = {}

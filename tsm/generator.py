@@ -9,25 +9,33 @@ from loguru import logger
 from .config import Config
 from .discovery import Service
 
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+
 
 class ConfigGenerator:
     """Generate Traefik configuration from discovered services."""
 
     def __init__(
         self,
+        name: str = "proxy",
+        environment: str = "development",
         domain_suffix: str = ".ddev",
         external_host: str | None = None,
         swarm_mode: bool = False,
         config: Config | None = None,
+        default_backend_host: str | None = None,
     ) -> None:
+        self.name = name
+        self.environment = environment
         self.domain_suffix = domain_suffix
         self.external_host = external_host
         self.swarm_mode = swarm_mode
         self.config = config or Config()
+        self.default_backend_host = default_backend_host
         self.logger = logger.bind(component="generator")
 
     def generate_traefik_config(self, services: list[Service]) -> dict[str, Any]:
-        """Generate complete Traefik configuration."""
+        """Generate complete Traefik configuration, supporting both HTTP and TCP."""
 
         self.logger.info(f"Generating Traefik config for {len(services)} services")
 
@@ -36,18 +44,27 @@ class ConfigGenerator:
                 "routers": {},
                 "services": {},
                 "middlewares": {},
-            }
+            },
+            "tcp": {
+                "routers": {},
+                "services": {},
+            },
         }
 
-        # Generate configuration for each service
         for service in services:
-            if service.traefik_enabled:
-                self._add_service_config(config, service)
+            # HTTP routers/services
+            if service.traefik_enabled and not self._is_tcp_service(service):
+                self._add_service_config(config["http"], service)
+            # TCP routers/services
+            if self._is_tcp_service(service):
+                self._add_tcp_service_config(config["tcp"], service)
 
-        # Add default middlewares
-        self._add_default_middlewares(config)
+        # Add default middlewares to HTTP only
+        self._add_default_middlewares(config["http"])
 
-        self.logger.info(f"Generated config with {len(config['http']['routers'])} routers")
+        self.logger.info(
+            f"Generated config with {len(config['http']['routers'])} HTTP routers and {len(config['tcp']['routers'])} TCP routers"
+        )
         return config
 
     def _add_service_config(self, config: dict[str, Any], service: Service) -> None:
@@ -58,12 +75,37 @@ class ConfigGenerator:
 
         # Generate router configuration
         router_config = self._generate_router_config(service, service_name)
-        config["http"]["routers"][router_name] = router_config
+        config["routers"][router_name] = router_config
 
         # Generate service configuration
-        service_config = self._generate_service_config(service)
-        config["http"]["services"][service_name] = service_config
-
+        service_config = {"loadBalancer": {"servers": []}}
+        address_set = False
+        for k, v in service.labels.items():
+            if k.startswith(f"traefik.http.services.{service_name}.loadbalancer.server.address"):
+                service_config["loadBalancer"]["servers"].append({"url": v})
+                address_set = True
+            elif k.startswith(f"traefik.http.services.{service_name}.loadbalancer.server.port"):
+                if not address_set:
+                    port = v
+                    # Use default_backend_host if set, else service.name
+                    host = self.default_backend_host or service.name
+                    url = f"http://{host}:{port}"
+                    service_config["loadBalancer"]["servers"].append({"url": url})
+                    address_set = True
+        if not service_config["loadBalancer"]["servers"]:
+            service_config = self._generate_service_config(service)
+        health_check = self._generate_health_check(service)
+        if health_check:
+            service_config["loadBalancer"]["healthCheck"] = health_check
+        if self._is_web_service(service):
+            service_config["loadBalancer"]["sticky"] = {
+                "cookie": {
+                    "name": f"{service.name}_session",
+                    "secure": True,
+                    "httpOnly": True,
+                }
+            }
+        config["services"][service_name] = service_config
         self.logger.debug(f"Added config for service: {service.name}")
 
     def _generate_router_config(self, service: Service, service_name: str) -> dict[str, Any]:
@@ -78,11 +120,12 @@ class ConfigGenerator:
         router_config = {
             "rule": rule,
             "service": service_name,
+            "entryPoints": ["websecure"],  # Always use websecure
         }
 
         # Add TLS configuration
-        if self.config.traefik.tls_enabled:
-            router_config["tls"] = {"certResolver": self.config.traefik.cert_resolver}
+        # if self.config.traefik.tls_enabled:
+        #     router_config["tls"] = {"certResolver": self.config.traefik.cert_resolver}
 
         # Add middlewares
         middlewares = service.traefik_middlewares.copy()
@@ -129,8 +172,8 @@ class ConfigGenerator:
             # In swarm mode, use service name as hostname
             url = f"http://{service.name}:{port}"
         else:
-            # In compose mode, use external host or service name
-            host = self.external_host or service.name
+            # Use default_backend_host if set, else external_host, else service.name
+            host = self.default_backend_host or self.external_host or service.name
             url = f"http://{host}:{port}"
 
         return [{"url": url}]
@@ -250,58 +293,15 @@ class ConfigGenerator:
             }
         }
 
-        config["http"]["middlewares"].update(default_middlewares)
+        config["middlewares"].update(default_middlewares)
 
     def generate_middleware_config(self) -> dict[str, Any]:
         """Generate middleware configuration."""
 
-        return {
-            "http": {
-                "middlewares": {
-                    "secure-headers": {
-                        "headers": {
-                            "accessControlAllowMethods": [
-                                "GET",
-                                "OPTIONS",
-                                "PUT",
-                                "POST",
-                                "DELETE",
-                            ],
-                            "accessControlAllowOriginList": [
-                                "https://localhost",
-                                f"https://*{self.domain_suffix}",
-                            ],
-                            "accessControlMaxAge": 100,
-                            "addVaryHeader": True,
-                            "browserXssFilter": True,
-                            "contentTypeNosniff": True,
-                            "forceSTSHeader": True,
-                            "frameDeny": True,
-                            "referrerPolicy": "same-origin",
-                            "sslRedirect": True,
-                            "stsIncludeSubdomains": True,
-                            "stsPreload": True,
-                            "stsSeconds": 31536000,
-                            "customRequestHeaders": {"X-Forwarded-Proto": "https"},
-                        }
-                    },
-                    "compress": {"compress": {}},
-                    "rate-limit": {"rateLimit": {"burst": 100, "average": 50, "period": "1m"}},
-                    "rate-limit-api": {"rateLimit": {"burst": 50, "average": 25, "period": "1m"}},
-                    "rate-limit-critical": {
-                        "rateLimit": {"burst": 25, "average": 10, "period": "1m"}
-                    },
-                    "auth": {
-                        "basicAuth": {
-                            "users": [
-                                "admin:$2y$10$2b2cu0pXZ8mUTtFBUhsKSeRWPYvN.7BjJePEKFz0N1AkD2EY.r9UG"
-                            ],
-                            "realm": "Traefik Protected Area",
-                        }
-                    },
-                }
-            }
-        }
+        with open(TEMPLATE_DIR / "middleware.yml") as f:
+            middleware_template = yaml.safe_load(f)
+
+        return middleware_template
 
     def generate_static_config(self) -> dict[str, Any]:
         """Generate Traefik static configuration."""
@@ -317,19 +317,22 @@ class ConfigGenerator:
                 },
                 "file": {"directory": "/etc/traefik/dynamic", "watch": True},
             },
-            "certificatesResolvers": {
-                "letsencrypt": {
-                    "acme": {
-                        "email": "admin@localhost",
-                        "storage": "/letsencrypt/acme.json",
-                        "httpChallenge": {"entryPoint": "web"},
-                    }
-                }
-            },
             "metrics": {"prometheus": {"addEntryPointsLabels": True, "addServicesLabels": True}},
             "log": {"level": "INFO"},
             "accessLog": {},
         }
+
+    def generate_docker_compose_file(self) -> str:
+        """Generate docker-compose.yml file."""
+        with open(TEMPLATE_DIR / "docker-compose.yml") as f:
+            docker_compose_template = f.read()
+        return docker_compose_template
+
+    def generate_scaling_rules_file(self) -> str:
+        """Generate scaling-rules.yml file."""
+        with open(TEMPLATE_DIR / "scaling-rules.yml") as f:
+            scaling_rules_template = f.read()
+        return scaling_rules_template
 
     @staticmethod
     def write_yaml(data: dict[str, Any], file: TextIO) -> None:
@@ -347,29 +350,112 @@ class ConfigGenerator:
         """Write all configuration files to output directory."""
 
         output_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = output_dir / "config"
+        config_dir.mkdir(exist_ok=True)
+        static_config_dir = config_dir / "static"
+        static_config_dir.mkdir(exist_ok=True)
+        dynamic_config_dir = config_dir / "dynamic"
+        dynamic_config_dir.mkdir(exist_ok=True)
         created_files = []
 
         # Generate and write service configuration
         traefik_config = self.generate_traefik_config(services)
-        services_file = output_dir / "services.yml"
+        services_file = dynamic_config_dir / "services.yml"
         with open(services_file, "w") as f:
-            self.write_yaml(traefik_config, f)
+            self.write_yaml({"http": traefik_config["http"]}, f)
         created_files.append(services_file)
+
+        # Generate and write TCP service configuration
+        tcp_services_file = dynamic_config_dir / "tcp-services.yml"
+        with open(tcp_services_file, "w") as f:
+            self.write_yaml({"tcp": traefik_config["tcp"]}, f)
+        created_files.append(tcp_services_file)
 
         # Generate and write middleware configuration
         middleware_config = self.generate_middleware_config()
-        middleware_file = output_dir / "middleware.yml"
+        middleware_file = dynamic_config_dir / "middleware.yml"
         with open(middleware_file, "w") as f:
             self.write_yaml(middleware_config, f)
         created_files.append(middleware_file)
 
         # Generate and write static configuration
         static_config = self.generate_static_config()
-        static_dir = output_dir.parent / "static"
-        static_dir.mkdir(exist_ok=True)
-        static_file = static_dir / "static.yml"
+        static_file = static_config_dir / "traefik.yml"
         with open(static_file, "w") as f:
             self.write_yaml(static_config, f)
         created_files.append(static_file)
 
+        # Generate and write docker-compose.yml file
+        docker_compose_contents = self.generate_docker_compose_file()
+        docker_compose_path = output_dir / "docker-compose.yml"
+        with open(docker_compose_path, "w") as f:
+            f.write(docker_compose_contents)
+        created_files.append(docker_compose_path)
+
+        # Generate and write scaling-rules.yml file
+        scaling_rules_contents = self.generate_scaling_rules_file()
+        scaling_rules_path = output_dir / "scaling-rules.yml"
+        with open(scaling_rules_path, "w") as f:
+            f.write(scaling_rules_contents)
+        created_files.append(scaling_rules_path)
+
         return created_files
+
+    def _is_tcp_service(self, service: Service) -> bool:
+        """Detect if a service should be routed as TCP based on labels."""
+        # Check for traefik.tcp.* labels or scheme=tcp
+        for k, v in service.labels.items():
+            if k.startswith("traefik.tcp."):
+                return True
+            if (
+                k.startswith("traefik.http.services.")
+                and ".loadbalancer.server.scheme" in k
+                and v.strip().lower() == "tcp"
+            ):
+                return True
+        return False
+
+    def _add_tcp_service_config(self, tcp_config: dict[str, Any], service: Service) -> None:
+        """Add TCP router and service config from labels."""
+        routers = {}
+        services = {}
+        for k, v in service.labels.items():
+            if k.startswith("traefik.tcp.routers."):
+                parts = k.split(".")
+                if len(parts) >= 4:
+                    router_name = parts[3]
+                    subkey = ".".join(parts[4:]) if len(parts) > 4 else None
+                    if router_name not in routers:
+                        routers[router_name] = {}
+                    if subkey:
+                        if subkey == "entrypoints":
+                            routers[router_name]["entryPoints"] = [
+                                ep.strip() for ep in v.split(",")
+                            ]
+                        else:
+                            routers[router_name][subkey] = v
+            elif k.startswith("traefik.tcp.services."):
+                parts = k.split(".")
+                if len(parts) >= 4:
+                    service_name = parts[3]
+                    subkey = ".".join(parts[4:]) if len(parts) > 4 else None
+                    if service_name not in services:
+                        services[service_name] = {"loadBalancer": {"servers": []}}
+                    if subkey == "loadbalancer.server.address":
+                        services[service_name]["loadBalancer"]["servers"].append({"address": v})
+                    elif subkey == "loadbalancer.server.port":
+                        # Only add if address not already set
+                        if not any(
+                            "address" in s
+                            for s in services[service_name]["loadBalancer"]["servers"]
+                        ):
+                            port = v
+                            host = self.default_backend_host or service.name
+                            address = f"{host}:{port}"
+                            services[service_name]["loadBalancer"]["servers"].append(
+                                {"address": address}
+                            )
+        for router_name, router in routers.items():
+            tcp_config["routers"][router_name] = router
+        for service_name, svc in services.items():
+            tcp_config["services"][service_name] = svc
