@@ -1,0 +1,80 @@
+FROM docker.io/alpine:3.20 AS etcd
+
+ARG ETCD_VER
+ENV ETCD_VER=3.5.15
+
+ARG PROXY_DOMAIN
+ENV PROXY_DOMAIN=${PROXY_DOMAIN:-herringbank.com}
+
+
+RUN apk add --update ca-certificates openssl tar curl
+RUN arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
+    curl -L https://github.com/etcd-io/etcd/releases/download/v${ETCD_VER}/etcd-v${ETCD_VER}-linux-${arch}.tar.gz -o /tmp/etcd.tar.gz && \
+    mkdir -p /tmp/etcd-download && \
+    tar xzvf /tmp/etcd.tar.gz -C /tmp/etcd-download --strip-components=1 --no-same-owner && \
+    rm -Rf /tmp/etcd.tar.gz && \
+    mv /tmp/etcd-download/etcd* /bin/ && \
+    apk del --purge tar openssl && \
+    rm -Rf /tmp/etcd-download /var/cache/apk/*
+
+FROM docker.io/traefik:v3.1.6 AS dist
+
+# Install envsubst
+RUN apk update && apk add --no-cache gettext shadow
+
+RUN apk add --no-cache libcap && \
+    setcap 'cap_net_bind_service=+ep' /usr/local/bin/traefik
+
+# Copy basicAuth - insecure
+COPY ./proxy/config/usersfile /etc/traefik/.htpasswd
+
+COPY ./proxy/config/traefik.yaml /etc/traefik/traefik.yaml
+# COPY ./config/dynamic.yaml /etc/traefik/dynamic.yaml
+
+# Should we do it this way? 
+# Nope, but good enough for now
+
+# Server certificates
+COPY ./proxy/certs/traefik/traefik-server.pem /etc/traefik/server.pem
+COPY ./proxy/certs/traefik/traefik-server-key.pem /etc/traefik/server-key.pem
+
+# COPY ./cert/traefik/herringbank.pem /etc/traefik/herringbank.pem
+# COPY ./cert/traefik/herringbank-key.pem /etc/traefik/herringbank-key.pem
+
+COPY ./proxy/certs/traefik/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
+COPY ./proxy/certs/traefik/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
+
+COPY ./proxy/certs/traefik/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
+COPY ./proxy/certs/traefik/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
+
+# Client certificates
+COPY ./proxy/certs/traefik/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
+COPY ./proxy/certs/traefik/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
+
+COPY ./proxy/cert/ca.pem /etc/traefik/ca.pem
+
+COPY --from=etcd /bin/etcd /bin/etcd
+COPY --from=etcd /bin/etcdctl /bin/etcdctl
+
+COPY ./dockerfiles/traefik/traefik-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+RUN chmod 644 /etc/traefik/*.pem && \
+    chmod 600 /etc/traefik/*-key.pem
+
+VOLUME      /data
+VOLUME      /logs
+
+EXPOSE      2379 2380 4001 7001
+
+RUN groupadd -r traefik && \
+    useradd -ms /bin/sh -d /home/traefik -g traefik traefik
+
+RUN chown traefik -R /etc/traefik && \
+    mkdir -p /logs && chown traefik -R /logs
+
+USER traefik
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["traefik"]
+

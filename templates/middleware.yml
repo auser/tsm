@@ -1,0 +1,259 @@
+http:
+  middlewares:
+    # Security Headers Middleware
+    secure-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+          - POST
+          - DELETE
+          - PATCH
+        accessControlAllowOriginList:
+          - "https://localhost"
+          - "https://*.ddev"
+          - "https://*.herringbank.com"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        frameDeny: true
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        referrerPolicy: "same-origin"
+        sslRedirect: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex"
+          server: ""
+          X-Powered-By: ""
+
+    # Compression Middleware
+    compress:
+      compress:
+        excludedContentTypes:
+          - "text/event-stream"
+          - "application/grpc"
+
+    # Rate Limiting - Global
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 200
+        period: "1m"
+
+    # Rate Limiting - API Services (stricter)
+    rate-limit-api:
+      rateLimit:
+        average: 50
+        burst: 100
+        period: "1m"
+
+    # Rate Limiting - Critical Services (most strict)
+    rate-limit-critical:
+      rateLimit:
+        average: 25
+        burst: 50
+        period: "1m"
+
+    # Rate Limiting - Web Applications
+    rate-limit-web:
+      rateLimit:
+        average: 200
+        burst: 400
+        period: "1m"
+
+    # Basic Authentication
+    auth:
+      basicAuth:
+        users:
+          - "admin:$2y$10$2b2cu0pXZ8mUTtFBUhsKSeRWPYvN.7BjJePEKFz0N1AkD2EY.r9UG" # admin:admin123
+        realm: "Traefik Protected Area"
+
+    # Forward Authentication (for SSO integration)
+    auth-forward:
+      forwardAuth:
+        address: "http://railssso:3000/auth/verify"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-User-Id"
+          - "X-User-Email"
+          - "X-User-Roles"
+
+    # IP Whitelist for Admin Services
+    admin-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+
+    # Circuit Breaker for External Services
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.3 || ResponseCodeRatio(500, 600, 0, 600) > 0.3"
+        checkPeriod: "3s"
+        fallbackDuration: "10s"
+        recoveryDuration: "5s"
+
+    # Request/Response Size Limits
+    buffering:
+      buffering:
+        maxRequestBodyBytes: 10000000 # 10MB
+        memRequestBodyBytes: 2000000 # 2MB
+        maxResponseBodyBytes: 10000000 # 10MB
+        memResponseBodyBytes: 2000000 # 2MB
+
+    # Retry Middleware
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: "100ms"
+
+    # StripPrefix for API versioning
+    api-v1-strip:
+      stripPrefix:
+        prefixes:
+          - "/api/v1"
+
+    api-v2-strip:
+      stripPrefix:
+        prefixes:
+          - "/api/v2"
+
+    # Path Prefix for legacy services
+    legacy-prefix:
+      addPrefix:
+        prefix: "/legacy"
+
+    # CORS Middleware for APIs
+    cors-api:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "OPTIONS"
+          - "PUT"
+          - "POST"
+          - "DELETE"
+          - "PATCH"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Requested-With"
+          - "X-API-Key"
+          - "Accept"
+          - "Origin"
+        accessControlAllowOriginList:
+          - "https://localhost"
+          - "https://*.ddev"
+          - "https://*.herringbank.com"
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+        accessControlAllowCredentials: true
+
+    # Request ID middleware
+    request-id:
+      headers:
+        customRequestHeaders:
+          X-Request-ID: "{{ .RequestID }}"
+
+    # Redirect to HTTPS
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # Remove trailing slash
+    strip-trailing-slash:
+      stripPrefix:
+        prefixes:
+          - "/"
+        forceSlash: false
+
+    # Add trailing slash
+    add-trailing-slash:
+      redirectRegex:
+        regex: "^(.*[^/])$"
+        replacement: "${1}/"
+        permanent: true
+
+    # Service-specific middleware chains
+    # High-security chain for payment services
+    payment-security:
+      chain:
+        middlewares:
+          - secure-headers
+          - rate-limit-critical
+          - circuit-breaker
+          - buffering
+          - retry
+          - request-id
+
+    # Standard web application chain
+    web-standard:
+      chain:
+        middlewares:
+          - secure-headers
+          - compress
+          - rate-limit-web
+          - cors-api
+          - redirect-to-https
+
+    # API service chain
+    api-standard:
+      chain:
+        middlewares:
+          - secure-headers
+          - compress
+          - rate-limit-api
+          - cors-api
+          - circuit-breaker
+          - request-id
+          - redirect-to-https
+
+    # Admin interface chain
+    admin-secure:
+      chain:
+        middlewares:
+          - secure-headers
+          - admin-whitelist
+          - auth
+          - rate-limit-api
+          - redirect-to-https
+
+    # Public service chain (minimal security)
+    public-minimal:
+      chain:
+        middlewares:
+          - secure-headers
+          - compress
+          - rate-limit
+          - redirect-to-https
+
+    # Monitoring services chain
+    monitoring-secure:
+      chain:
+        middlewares:
+          - secure-headers
+          - admin-whitelist
+          - rate-limit-api
+          - redirect-to-https
+
+# TCP Middlewares (for database services, etc.)
+tcp:
+  middlewares:
+    # IP Whitelist for database access
+    db-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"

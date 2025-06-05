@@ -361,14 +361,15 @@ def status(service: str | None, detailed: bool, format: str) -> None:
 
 
 @cli.command("init-config")
+@click.option("--name", "-n", default="proxy", help="Name of the project")
 @click.option("--force", is_flag=True, help="Overwrite existing files")
-def init_config(force: bool) -> None:
+def init_config(name: str, force: bool) -> None:
     """Initialize default configuration files."""
 
     from .templates import create_default_configs
 
     try:
-        created_files = create_default_configs(force=force)
+        created_files = create_default_configs(name=name, force=force)
 
         console.print("[green]✓ Default configuration files created:[/green]")
         for file_path in created_files:

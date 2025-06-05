@@ -1,0 +1,8 @@
+services:
+  example-service:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 5
+    target_cpu: 70.0
+    target_memory: 80.0
+    priority: medium
