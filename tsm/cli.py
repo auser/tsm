@@ -740,6 +740,30 @@ def generate_usersfile_cmd(username, password, output):
         console.print(f"[red]Failed to generate usersfile: {e}[/red]")
 
 
+@cli.command()
+@click.option("--compose-file", "-f", default="docker-compose.yml", help="Docker Compose file path")
+def up(compose_file: str) -> None:
+    """Launch all services defined in the Docker Compose file."""
+    compose_path = Path(compose_file)
+    if not compose_path.exists():
+        console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
+        sys.exit(1)
+    cmd = ["docker", "compose", "-f", str(compose_path), "up", "-d"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            # Fallback to docker-compose
+            cmd = ["docker-compose", "-f", str(compose_path), "up", "-d"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        console.print("[green]✓ Services launched successfully[/green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]Error launching services: {e.stderr}[/red]")
+        sys.exit(1)
+    except FileNotFoundError:
+        console.print("[red]Error: docker compose or docker-compose not found in PATH[/red]")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     try:

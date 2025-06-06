@@ -1,0 +1,14 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    platform: linux/amd64
+    ports:
+      - published: 80
+        target: 80
+      - published: 8080
+        target: 8080
+    volumes:
+      - ../../..:/workspace:cached

@@ -1,0 +1,16 @@
+services:
+  devcontainer:
+    image: traefik:latest
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - published: 80
+        target: 80
+      - published: 8080
+        target: 8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

@@ -1,0 +1,30 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-in-docker
+{
+  "name": "Traefik Proxy",
+  "dockerComposeFile": "docker/devcontainer/compose-devcontainer.yml",
+  "service": "devcontainer",
+  "runServices": [
+    "devcontainer"
+  ],
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [
+    80,
+    8080
+  ],
+  "portsAttributes": {
+    "80": {
+      "label": "Traefik",
+      "onAutoForward": "silent"
+    },
+    "8080": {
+      "label": "Traefik",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "chmod +x .devcontainer/scripts/postCreate.sh && .devcontainer/scripts/postCreate.sh"
+}
