@@ -30,7 +30,6 @@ services:
         - traefik.enable=true
         - traefik.http.routers.utility-router.middlewares=secure-headers
         - traefik.http.routers.utility-router.rule=Host(`utility.ddev`) || Host(`utility.herringbank.com`)
-
         ################################
         # MongoDB
         ################################
@@ -162,7 +161,6 @@ services:
         - traefik.http.routers.email-router.rule=Host(`email.ddev`) || Host(`email.herringbank.com`)
         - traefik.http.services.email-service.loadbalancer.server.port=9110
         - traefik.http.services.email-service.loadbalancer.server.scheme=http
-
       ################################
       # TUMS (NEW)
       ################################
@@ -197,9 +195,8 @@ services:
         - traefik.http.routers.tumsnew-router.middlewares=secure-headers
         # - traefik.http.routers.tumsnew-router.rule=Host(`tumsnew.ddev`) || Host(`tumsnew.herringbank.com`)
         - traefik.http.services.tumsnew-service.loadbalancer.server.port=9170
-        - traefik.http.services.tumsnew-service.loadbalancer.server.address=civpldocker03
+        - traefik.http.services.tumsnew-service.loadbalancer.server.address=civpldocker03.herringbank.com
         - traefik.http.services.tumsnew-service.loadbalancer.server.scheme=http
-
       ################################
       # NOTIFICATION SERVICE
       ################################

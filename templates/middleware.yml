@@ -28,8 +28,6 @@ http:
         stsPreload: true
         stsSeconds: 31536000
         customFrameOptionsValue: "SAMEORIGIN"
-        customRequestHeaders:
-          X-Forwarded-Proto: "https"
         customResponseHeaders:
           X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex"
           server: ""
@@ -163,7 +161,7 @@ http:
     request-id:
       headers:
         customRequestHeaders:
-          X-Request-ID: "{{ .RequestID }}"
+          X-Request-ID: ""
 
     # Redirect to HTTPS
     redirect-to-https:

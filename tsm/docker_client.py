@@ -292,12 +292,20 @@ class DockerManager:
                     self.logger.warning(f"Failed to create network {network_name}: {e}")
 
     def clean_system(self) -> None:
-        """Clean up Docker system resources."""
+        """Clean up Docker system."""
         try:
-            self.client.system.prune()
-            self.logger.info("Docker system cleanup completed")
+            # Prune containers
+            self.client.containers.prune()
+            # Prune images
+            self.client.images.prune()
+            # Prune networks
+            self.client.networks.prune()
+            # Prune volumes
+            self.client.volumes.prune()
+            self.logger.info("Cleaned up Docker system")
         except DockerException as e:
             self.logger.error(f"Failed to clean Docker system: {e}")
+            raise RuntimeError(f"Failed to clean Docker system: {e}")
 
     def clean_volumes(self) -> None:
         """Clean up unused Docker volumes."""

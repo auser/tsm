@@ -40,31 +40,44 @@ class ConfigGenerator:
 
         self.logger.info(f"Generating Traefik config for {len(services)} services")
 
-        config = {
-            "http": {
-                "routers": {},
-                "services": {},
-                "middlewares": {},
-            },
-            "tcp": {
-                "routers": {},
-                "services": {},
-            },
+        config = {}
+
+        # Process HTTP services first
+        http_config = {
+            "routers": {},
+            "services": {},
+        }
+
+        # Process TCP services
+        tcp_config = {
+            "routers": {},
+            "services": {},
         }
 
         for service in services:
             # HTTP routers/services
             if service.traefik_enabled and not self._is_tcp_service(service):
-                self._add_service_config(config["http"], service)
+                self._add_service_config(http_config, service)
             # TCP routers/services
             if self._is_tcp_service(service):
-                self._add_tcp_service_config(config["tcp"], service)
+                self._add_tcp_service_config(tcp_config, service)
 
-        # Add default middlewares to HTTP only
-        self._add_default_middlewares(config["http"])
+        # Add default middlewares to HTTP only if there are any routers or services
+        if http_config["routers"] or http_config["services"]:
+            # Initialize middlewares section
+            http_config["middlewares"] = {}
+            self._add_default_middlewares(http_config)
+            # Remove middlewares section if empty
+            if not http_config["middlewares"]:
+                http_config.pop("middlewares")
+            config["http"] = http_config
+
+        # Only add TCP section if it has content
+        if tcp_config["routers"] or tcp_config["services"]:
+            config["tcp"] = tcp_config
 
         self.logger.info(
-            f"Generated config with {len(config['http']['routers'])} HTTP routers and {len(config['tcp']['routers'])} TCP routers"
+            f"Generated config with {len(http_config['routers'])} HTTP routers and {len(tcp_config['routers'])} TCP routers"
         )
         return config
 
@@ -317,14 +330,7 @@ class ConfigGenerator:
 
         # These are basic middlewares - the full middleware config should be
         # loaded from the middleware.yml file
-        default_middlewares = {
-            "default-headers": {
-                "headers": {
-                    "X-Forwarded-Proto": "https",
-                    "X-Real-IP": "{http_x_forwarded_for}",
-                }
-            }
-        }
+        default_middlewares = {}
 
         config["middlewares"].update(default_middlewares)
 
@@ -368,12 +374,30 @@ class ConfigGenerator:
         return scaling_rules_template
 
     def copy_dockerfiles_to_output(self, output_dir: Path) -> None:
-        """Copy dockerfiles directory (recursively) to output directory."""
-        dockerfiles_dir = TEMPLATE_DIR / "dockerfiles"
-        dest_dir = output_dir / "dockerfiles"
-        if dest_dir.exists():
-            shutil.rmtree(dest_dir)
-        shutil.copytree(dockerfiles_dir, dest_dir)
+        """Copy Dockerfiles to output directory."""
+        dockerfile_dir = output_dir / "dockerfiles"
+        dockerfile_dir.mkdir(exist_ok=True)
+        if dockerfile_dir.exists():
+            shutil.rmtree(dockerfile_dir)
+        shutil.copytree(TEMPLATE_DIR / "dockerfiles", dockerfile_dir)
+
+    def copy_alertmanager_config(self, output_dir: Path) -> None:
+        """Copy alertmanager.yml to output directory."""
+        monitoring_dir = output_dir / "monitoring"
+        monitoring_dir.mkdir(exist_ok=True)
+        alertmanager_src = TEMPLATE_DIR / "alertmanager.yml"
+        if alertmanager_src.exists():
+            shutil.copy2(alertmanager_src, monitoring_dir)
+            self.logger.info("Copied alertmanager.yml to output directory")
+
+    def copy_prometheus_config(self, output_dir: Path) -> None:
+        """Copy prometheus.yml to output directory."""
+        monitoring_dir = output_dir / "monitoring"
+        monitoring_dir.mkdir(exist_ok=True)
+        prometheus_src = TEMPLATE_DIR / "prometheus.yml"
+        if prometheus_src.exists():
+            shutil.copy2(prometheus_src, monitoring_dir)
+            self.logger.info("Copied prometheus.yml to output directory")
 
     @staticmethod
     def write_yaml(data: dict[str, Any], file: TextIO) -> None:
@@ -387,63 +411,61 @@ class ConfigGenerator:
             indent=2,
         )
 
-    def write_config_files(self, output_dir: Path, services: list[Service]) -> list[Path]:
-        """Write all configuration files to output directory."""
+    def write_config_files(self, name: str, output_dir: Path, services: list[Service]) -> list[Path]:
+        """Write all configuration files to the output directory."""
+        written_files = []
 
+        # Create output directory
+        output_dir = output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         config_dir = output_dir / "config"
-        config_dir.mkdir(exist_ok=True)
+        config_dir.mkdir(parents=True, exist_ok=True)
         static_config_dir = config_dir / "static"
-        static_config_dir.mkdir(exist_ok=True)
+        static_config_dir.mkdir(parents=True, exist_ok=True)
         dynamic_config_dir = config_dir / "dynamic"
-        dynamic_config_dir.mkdir(exist_ok=True)
-        created_files = []
+        dynamic_config_dir.mkdir(parents=True, exist_ok=True)
 
-        # Generate and write service configuration
+        # Generate and write Traefik config
         traefik_config = self.generate_traefik_config(services)
-        services_file = dynamic_config_dir / "services.yml"
-        with open(services_file, "w") as f:
-            self.write_yaml({"http": traefik_config["http"]}, f)
-        created_files.append(services_file)
+        config_file = output_dir / "config.yml"
+        with open(config_file, "w") as f:
+            self.write_yaml(traefik_config, f)
+        written_files.append(config_file)
 
-        # Generate and write TCP service configuration
-        tcp_services_file = dynamic_config_dir / "tcp-services.yml"
-        with open(tcp_services_file, "w") as f:
-            self.write_yaml({"tcp": traefik_config["tcp"]}, f)
-        created_files.append(tcp_services_file)
-
-        # Generate and write middleware configuration
+        # Generate and write middleware config
         middleware_config = self.generate_middleware_config()
         middleware_file = dynamic_config_dir / "middleware.yml"
         with open(middleware_file, "w") as f:
             self.write_yaml(middleware_config, f)
-        created_files.append(middleware_file)
+        written_files.append(middleware_file)
 
-        # Generate and write static configuration
+        # Generate and write static config
         static_config = self.generate_static_config()
         static_file = static_config_dir / "traefik.yml"
         with open(static_file, "w") as f:
             self.write_yaml(static_config, f)
-        created_files.append(static_file)
+        written_files.append(static_file)
 
-        # Generate and write docker-compose.yml file
-        docker_compose_contents = self.generate_docker_compose_file()
-        docker_compose_path = output_dir / "docker-compose.yml"
-        with open(docker_compose_path, "w") as f:
-            f.write(docker_compose_contents)
-        created_files.append(docker_compose_path)
+        # Write docker-compose.yml
+        compose_file = output_dir / "docker-compose.yml"
+        with open(compose_file, "w") as f:
+            f.write(self.generate_docker_compose_file())
+        written_files.append(compose_file)
 
-        # Generate and write scaling-rules.yml file
-        scaling_rules_contents = self.generate_scaling_rules_file()
-        scaling_rules_path = output_dir / "scaling-rules.yml"
-        with open(scaling_rules_path, "w") as f:
-            f.write(scaling_rules_contents)
-        created_files.append(scaling_rules_path)
+        # Write scaling rules
+        scaling_file = output_dir / "scaling-rules.yml"
+        with open(scaling_file, "w") as f:
+            f.write(self.generate_scaling_rules_file())
+        written_files.append(scaling_file)
 
-        # Copy dockerfile templates to output directory
+        # Copy Dockerfiles
         self.copy_dockerfiles_to_output(output_dir)
 
-        return created_files
+        # Copy monitoring configs
+        self.copy_alertmanager_config(output_dir)
+        self.copy_prometheus_config(output_dir)
+
+        return written_files
 
     def _is_tcp_service(self, service: Service) -> bool:
         """Detect if a service should be routed as TCP based on labels."""

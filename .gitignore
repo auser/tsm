@@ -9,4 +9,7 @@ wheels/
 # Virtual environments
 .venv
 proxy
+**/.DS_Store
+.env
 logs/
+

@@ -10,7 +10,14 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     curl \
     git \
     make \
-    libc6-dev
+    libc6-dev \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    python3-setuptools \
+    python3-wheel \
+    python3-numpy
 
 RUN cd /usr/local/src && \
     curl -L -O https://go.dev/dl/go1.24.3.linux-amd64.tar.gz && \
@@ -25,5 +32,6 @@ RUN cd /usr/local/src && \
     make && \
     make install
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 USER vscode

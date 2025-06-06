@@ -72,6 +72,6 @@ RUN chown traefik -R /etc/traefik && \
 
 USER traefik
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["traefik"]
 

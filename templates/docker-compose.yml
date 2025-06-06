@@ -1,11 +1,10 @@
-version: '3.8'
-
 services:
   # Traefik reverse proxy and load balancer
   traefik:
     image: fp/traefik
     container_name: traefik
     restart: unless-stopped
+    user: "0:0" # Run as root to ensure Docker socket access
     command:
       - --api.dashboard=true
       - --api.insecure=true
@@ -26,8 +25,8 @@ services:
       - "443:443"
       - "8080:8080"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./proxy/config:/etc/traefik:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/etc/traefik:ro
     networks:
       - traefik
       - monitoring
@@ -49,25 +48,25 @@ services:
       - monitoring
 
   # Consul for service discovery and configuration
-  consul:
-    image: consul:1.15
-    container_name: consul
-    restart: unless-stopped
-    command: consul agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
-    environment:
-      - CONSUL_BIND_INTERFACE=eth0
-    ports:
-      - "8500:8500"
-      - "8600:8600/udp"
-    volumes:
-      - consul_data:/consul/data
-    networks:
-      - traefik
-      - monitoring
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.consul.rule=Host(`consul.ddev`) || Host(`consul.herringbank.com`)"
-      - "traefik.http.services.consul.loadbalancer.server.port=8500"
+  # consul:
+  #   image: consul:1.15
+  #   container_name: consul
+  #   restart: unless-stopped
+  #   command: consul agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
+  #   environment:
+  #     - CONSUL_BIND_INTERFACE=eth0
+  #   ports:
+  #     - "8500:8500"
+  #     - "8600:8600/udp"
+  #   volumes:
+  #     - consul_data:/consul/data
+  #   networks:
+  #     - traefik
+  #     - monitoring
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.consul.rule=Host(`consul.ddev`) || Host(`consul.herringbank.com`)"
+  #     - "traefik.http.services.consul.loadbalancer.server.port=8500"
 
   # Prometheus for metrics collection
   prometheus:
@@ -95,7 +94,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.ddev`) || Host(`prometheus.herringbank.com`)"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-      - "traefik.http.routers.prometheus.middlewares=auth@file"
 
   # Grafana for visualization
   grafana:
@@ -116,33 +114,24 @@ services:
     networks:
       - monitoring
       - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.ddev`) || Host(`grafana.herringbank.com`)"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
   # AlertManager for alerting
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: alertmanager
-    restart: unless-stopped
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
-      - '--web.external-url=https://alertmanager.ddev'
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - alertmanager_data:/alertmanager
-    networks:
-      - monitoring
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.ddev`) || Host(`alertmanager.herringbank.com`)"
-      - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
-      - "traefik.http.routers.alertmanager.middlewares=auth@file"
+  # alertmanager:
+  #   image: prom/alertmanager:latest
+  #   container_name: alertmanager
+  #   restart: unless-stopped
+  #   command:
+  #     - '--config.file=/etc/alertmanager/alertmanager.yml'
+  #     - '--storage.path=/alertmanager'
+  #     - '--web.external-url=https://alertmanager.ddev'
+  #   ports:
+  #     - "9093:9093"
+  #   volumes:
+  #     - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+  #     - alertmanager_data:/alertmanager
+  #   networks:
+  #     - monitoring
+  #     - traefik
 
   # Node Exporter for host metrics
   node-exporter:
@@ -178,7 +167,7 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     ports:
-      - "8081:8080"
+      - "8082:8080"
     networks:
       - monitoring
     labels:

@@ -400,10 +400,10 @@ def status(service: str | None, detailed: bool, format: str) -> None:
 
 
 @cli.command("init-config")
-@click.option("--name", "-n", default="proxy", help="Name of the project")
-@click.option("--environment", "-e", default="development", help="Environment")
-@click.option("--compose-file", "-f", default="docker-compose.yml", help="Docker Compose file path")
-@click.option("--default-backend-host", "-b", help="Default backend host for HTTP services")
+@click.option("--name", "-n", default=os.environ.get("NAME", "proxy"), help="Name of the project")
+@click.option("--environment", "-e", default=os.environ.get("ENVIRONMENT", "development"), help="Environment")
+@click.option("--compose-file", "-f", default=os.environ.get("COMPOSE_FILE", "docker-compose.yml"), help="Docker Compose file path")
+@click.option("--default-backend-host", "-b", default=os.environ.get("DEFAULT_BACKEND_HOST"), help="Default backend host for HTTP services")
 def init_config(
     name: str, environment: str, compose_file: str, default_backend_host: str | None
 ) -> None:
@@ -422,7 +422,7 @@ def init_config(
             name=name, environment=environment, default_backend_host=default_backend_host
         )
         base_dir = Path.cwd() / name
-        created_files = generator.write_config_files(output_dir=base_dir, services=services)
+        created_files = generator.write_config_files(name=name, output_dir=base_dir, services=services)
 
         # Generate cert templates in cert-config
         cert_config_dir = base_dir / "cert-config"
@@ -563,17 +563,17 @@ def generate_hosts(
 @click.option(
     "--dockerfiles-dir",
     "-d",
-    default="dockerfiles",
+    default=os.environ.get("DOCKERFILES_DIR", "dockerfiles"),
     help="Directory containing dockerfile subdirectories (default: ./dockerfiles)",
 )
 @click.option(
     "--tag-prefix",
-    default="tsm-",
-    help="Prefix for built image tags (default: tsm-)",
+    default=os.environ.get("TAG_PREFIX", "fp/"),
+    help="Prefix for built image tags (default: fp/)",
 )
 @click.option(
     "--context-dir",
-    default="proxy",
+    default=os.environ.get("CONTEXT_DIR", "proxy"),
     help="Docker build context directory (default: ./proxy)",
 )
 def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -> None:
@@ -724,10 +724,10 @@ def install_deps():
 
 
 @cli.command("generate-usersfile")
-@click.option("--username", required=True, help="Username for basic auth")
-@click.option("--password", required=True, help="Password for basic auth")
+@click.option("--username", '-u', required=True, help="Username for basic auth")
+@click.option("--password", '-p', required=True, help="Password for basic auth")
 @click.option(
-    "--output", required=True, help="Output path for usersfile (e.g., proxy/config/usersfile)"
+    "--output", '-o', default=os.environ.get("OUTPUT_DIR", "proxy/config/usersfile"), help="Output path for usersfile (e.g., proxy/config/usersfile)"
 )
 def generate_usersfile_cmd(username, password, output):
     """Generate an htpasswd usersfile using Docker (httpd:alpine)."""
