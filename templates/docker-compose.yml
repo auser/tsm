@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Traefik reverse proxy and load balancer
   traefik:
-    image: traefik:v3.0
+    image: fp/traefik
     container_name: traefik
     restart: unless-stopped
     command:
@@ -35,6 +35,18 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.ddev`) || Host(`traefik.herringbank.com`)"
       - "traefik.http.routers.traefik.service=api@internal"
+
+  static:
+    image: fp/static
+    container_name: static
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./static:/usr/share/nginx/html:ro
+    networks:
+      - traefik
+      - monitoring
 
   # Consul for service discovery and configuration
   consul:
