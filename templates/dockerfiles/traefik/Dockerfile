@@ -26,32 +26,29 @@ RUN apk add --no-cache libcap && \
     setcap 'cap_net_bind_service=+ep' /usr/local/bin/traefik
 
 # Copy basicAuth - insecure
-COPY ./proxy/config/usersfile /etc/traefik/.htpasswd
+COPY ./config/usersfile /etc/traefik/.htpasswd
 
-COPY ./proxy/config/traefik.yaml /etc/traefik/traefik.yaml
+COPY ./config/static/traefik.yml /etc/traefik/traefik.yaml
 # COPY ./config/dynamic.yaml /etc/traefik/dynamic.yaml
 
 # Should we do it this way? 
 # Nope, but good enough for now
 
 # Server certificates
-COPY ./proxy/certs/traefik/traefik-server.pem /etc/traefik/server.pem
-COPY ./proxy/certs/traefik/traefik-server-key.pem /etc/traefik/server-key.pem
+COPY ./certs/traefik/traefik-server.pem /etc/traefik/server.pem
+COPY ./certs/traefik/traefik-server-key.pem /etc/traefik/server-key.pem
 
-# COPY ./cert/traefik/herringbank.pem /etc/traefik/herringbank.pem
-# COPY ./cert/traefik/herringbank-key.pem /etc/traefik/herringbank-key.pem
+COPY ./certs/traefik/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
+COPY ./certs/traefik/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
 
-COPY ./proxy/certs/traefik/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
-COPY ./proxy/certs/traefik/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
-
-COPY ./proxy/certs/traefik/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
-COPY ./proxy/certs/traefik/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
+COPY ./certs/traefik/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
+COPY ./certs/traefik/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
 
 # Client certificates
-COPY ./proxy/certs/traefik/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
-COPY ./proxy/certs/traefik/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
+# COPY ./certs/traefik/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
+# COPY ./certs/traefik/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
 
-COPY ./proxy/cert/ca.pem /etc/traefik/ca.pem
+COPY ./certs/ca.pem /etc/traefik/ca.pem
 
 COPY --from=etcd /bin/etcd /bin/etcd
 COPY --from=etcd /bin/etcdctl /bin/etcdctl

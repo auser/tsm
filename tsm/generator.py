@@ -1,5 +1,6 @@
 """Traefik configuration generator."""
 
+import shutil
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -366,6 +367,14 @@ class ConfigGenerator:
             scaling_rules_template = f.read()
         return scaling_rules_template
 
+    def copy_dockerfiles_to_output(self, output_dir: Path) -> None:
+        """Copy dockerfiles directory (recursively) to output directory."""
+        dockerfiles_dir = TEMPLATE_DIR / "dockerfiles"
+        dest_dir = output_dir / "dockerfiles"
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir)
+        shutil.copytree(dockerfiles_dir, dest_dir)
+
     @staticmethod
     def write_yaml(data: dict[str, Any], file: TextIO) -> None:
         """Write data as YAML to file."""
@@ -431,6 +440,9 @@ class ConfigGenerator:
             f.write(scaling_rules_contents)
         created_files.append(scaling_rules_path)
 
+        # Copy dockerfile templates to output directory
+        self.copy_dockerfiles_to_output(output_dir)
+
         return created_files
 
     def _is_tcp_service(self, service: Service) -> bool:
@@ -491,3 +503,99 @@ class ConfigGenerator:
             tcp_config["routers"][router_name] = router
         for service_name, svc in services.items():
             tcp_config["services"][service_name] = svc
+
+    def generate_cert_templates(self, cert_config_dir: Path, force: bool = False) -> list[Path]:
+        """Generate CA and CSR template files for certificate generation."""
+        cert_config_dir.mkdir(parents=True, exist_ok=True)
+        created = []
+        ca_config = cert_config_dir / "ca-config.json"
+        ca_csr = cert_config_dir / "ca-csr.json"
+        csr_template = cert_config_dir / "csr-template.json"
+        ca_config_content = """{
+  "signing": {
+    "default": {
+      "expiry": "8760h"
+    },
+    "profiles": {
+      "server": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "client auth"
+        ],
+        "expiry": "8760h"
+      },
+      "client": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "client auth"
+        ],
+        "expiry": "8760h"
+      },
+      "peer": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "client auth"
+        ],
+        "expiry": "8760h"
+      }
+    }
+  }
+}
+"""
+        ca_csr_content = """{
+  "CN": "FinancialPayments CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "US",
+      "L": "San Francisco",
+      "O": "FinancialPayments",
+      "OU": "CA",
+      "ST": "California"
+    }
+  ]
+}
+"""
+        csr_template_content = """{
+  "CN": "COMMON_NAME",
+  "hosts": [
+    "HOSTS"
+  ],
+  "key": {
+    "algo": "ecdsa",
+    "size": 256
+  },
+  "names": [
+    {
+      "C": "US",
+      "L": "Texas",
+      "O": "etcd",
+      "ST": "California"
+    }
+  ]
+}
+"""
+        if force or not ca_config.exists():
+            with open(ca_config, "w") as f:
+                f.write(ca_config_content)
+            self.logger.info(f"Created {ca_config}")
+            created.append(ca_config)
+        if force or not ca_csr.exists():
+            with open(ca_csr, "w") as f:
+                f.write(ca_csr_content)
+            self.logger.info(f"Created {ca_csr}")
+            created.append(ca_csr)
+        if force or not csr_template.exists():
+            with open(csr_template, "w") as f:
+                f.write(csr_template_content)
+            self.logger.info(f"Created {csr_template}")
+            created.append(csr_template)
+        return created

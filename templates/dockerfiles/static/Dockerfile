@@ -1,6 +1,6 @@
 FROM nginx:alpine
 
-COPY ./dockerfiles/robots/robots.txt /usr/share/nginx/html/robots.txt
+COPY ./dockerfiles/static/robots.txt /usr/share/nginx/html/robots.txt
 
 RUN echo 'server { listen 8081; location / { root /usr/share/nginx/html; } }' > /etc/nginx/conf.d/default.conf
 

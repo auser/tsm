@@ -6,6 +6,8 @@ A modern service discovery and auto-scaling tool for Traefik with Docker.
 """
 
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
+from .certs import copy_certs as copy_certs_func
 from .config import Config, load_config
 from .discovery import ServiceDiscovery
 from .docker_client import DockerManager
@@ -421,6 +424,10 @@ def init_config(
         base_dir = Path.cwd() / name
         created_files = generator.write_config_files(output_dir=base_dir, services=services)
 
+        # Generate cert templates in cert-config
+        cert_config_dir = base_dir / "cert-config"
+        created_files.extend(generator.generate_cert_templates(cert_config_dir, force=True))
+
         console.print("[green]✓ Default configuration files created:[/green]")
         for file_path in created_files:
             console.print(f"  • {file_path}")
@@ -550,6 +557,187 @@ def generate_hosts(
     else:
         console.print("[blue]Add the following line to your /etc/hosts:[/blue]")
         console.print(hosts_line)
+
+
+@cli.command("build-dockerfiles")
+@click.option(
+    "--dockerfiles-dir",
+    "-d",
+    default="dockerfiles",
+    help="Directory containing dockerfile subdirectories (default: ./dockerfiles)",
+)
+@click.option(
+    "--tag-prefix",
+    default="tsm-",
+    help="Prefix for built image tags (default: tsm-)",
+)
+@click.option(
+    "--context-dir",
+    default="proxy",
+    help="Docker build context directory (default: ./proxy)",
+)
+def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -> None:
+    """Build all Dockerfiles in the dockerfiles directory with the specified build context."""
+    from .certs import copy_prod_certs_if_present
+
+    # Copy production certs if present before building
+    copy_prod_certs_if_present()
+    dockerfiles_path = Path(dockerfiles_dir)
+    context_path = Path(context_dir)
+    if not dockerfiles_path.exists() or not dockerfiles_path.is_dir():
+        console.print(f"[red]Dockerfiles directory not found: {dockerfiles_path}[/red]")
+        sys.exit(1)
+    if not context_path.exists() or not context_path.is_dir():
+        console.print(f"[red]Context directory not found: {context_path}[/red]")
+        sys.exit(1)
+
+    built_any = False
+    for subdir in dockerfiles_path.iterdir():
+        if subdir.is_dir():
+            dockerfile = subdir / "Dockerfile"
+            if dockerfile.exists():
+                image_tag = f"{tag_prefix}{subdir.name}"
+                console.print(
+                    f"[blue]Building {dockerfile} as {image_tag} with context {context_path}...[/blue]"
+                )
+                import subprocess
+
+                result = subprocess.run(
+                    ["docker", "build", "-f", str(dockerfile), "-t", image_tag, str(context_path)],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    console.print(f"[green]✓ Built {image_tag}[/green]")
+                    built_any = True
+                else:
+                    console.print(f"[red]Failed to build {image_tag}[/red]")
+                    console.print(result.stderr)
+    if not built_any:
+        console.print("[yellow]No Dockerfiles found to build.[/yellow]")
+
+
+@cli.command("generate-certs")
+@click.option(
+    "--type",
+    type=click.Choice(["all", "ca", "server", "client", "peer"]),
+    default="all",
+    show_default=True,
+    help="Certificate type: ca, server, client, peer, or all (default: all)",
+)
+@click.option("--name", default=None, help="Name for the certificate files (default: type name)")
+@click.option(
+    "--common-name",
+    default=os.environ.get("COMMON_NAME", "traefik"),
+    help="Common Name (CN) for the certificate (default: traefik)",
+)
+@click.option(
+    "--hosts",
+    default=os.environ.get("HOSTS", "localhost,127.0.0.1,traefik"),
+    help="Comma-separated list of hosts for the cert",
+)
+@click.option(
+    "--output-dir",
+    default=os.environ.get("OUTPUT_DIR", "./proxy/certs"),
+    help="Base directory to write certs to (default: ./proxy/certs)",
+)
+@click.option(
+    "--cert-config-dir",
+    default=os.environ.get("CERT_CONFIG_DIR", "./proxy/cert-config"),
+    help="Directory containing ca-csr.json, ca-config.json, csr-template.json",
+)
+@click.option("--profile", default="server", help="cfssl profile to use (default: server)")
+@click.option(
+    "--domain",
+    default=os.environ.get("DOMAIN", "herringbank.com"),
+    help="Domain for wildcard certs (default: herringbank.com)",
+)
+@click.option(
+    "--bundle",
+    type=click.Choice(["traefik"]),
+    default=None,
+    help="Generate a bundle of certs for a specific use case (e.g., traefik)",
+)
+def generate_certs(
+    type, name, common_name, hosts, output_dir, cert_config_dir, profile, domain, bundle
+):
+    """Generate CA or service certificates using cfssl/cfssljson (replaces gen-certs.sh)."""
+    from .certs import generate_certs_cli
+
+    generate_certs_cli(
+        type,
+        name,
+        common_name,
+        hosts,
+        output_dir,
+        cert_config_dir,
+        profile,
+        domain,
+        bundle,
+        console,
+    )
+
+
+@cli.command("copy-certs")
+@click.option("--from-dir", required=True, help="Source directory for certs")
+@click.option("--to-dir", required=True, help="Destination directory for certs")
+def copy_certs(from_dir, to_dir):
+    """Copy certificates from one directory to another if they exist."""
+    copy_certs_func(from_dir, to_dir, console)
+
+
+@cli.command("install-deps")
+def install_deps():
+    """Install required dependencies (docker, python3, uv, cfssl, cfssljson, then uv venv + uv sync)."""
+    required_bins = ["docker", "python3", "uv"]
+    missing = [b for b in required_bins if not shutil.which(b)]
+    if missing:
+        console.print(f"[red]Missing required tools: {', '.join(missing)}[/red]")
+        sys.exit(1)
+    # Check for cfssl and cfssljson
+    cfssl_missing = not shutil.which("cfssl")
+    cfssljson_missing = not shutil.which("cfssljson")
+    if cfssl_missing or cfssljson_missing:
+        if sys.platform == "darwin":
+            console.print(
+                "[yellow]cfssl or cfssljson not found. Installing with Homebrew...[/yellow]"
+            )
+            try:
+                subprocess.run(["brew", "install", "cfssl"], check=True)
+                console.print("[green]✓ cfssl and cfssljson installed via Homebrew[/green]")
+            except subprocess.CalledProcessError as e:
+                console.print(f"[red]Failed to install cfssl with Homebrew: {e}[/red]")
+                sys.exit(1)
+        else:
+            console.print(
+                "[red]cfssl and cfssljson are required. Please install them manually from https://github.com/cloudflare/cfssl/releases[/red]"
+            )
+            sys.exit(1)
+    console.print("[blue]Installing Python dependencies...[/blue]")
+    try:
+        subprocess.run(["uv", "venv"], check=True)
+        subprocess.run(["uv", "sync"], check=True)
+        console.print("[green]✓ Dependencies installed[/green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]Dependency installation failed: {e}[/red]")
+        sys.exit(1)
+
+
+@cli.command("generate-usersfile")
+@click.option("--username", required=True, help="Username for basic auth")
+@click.option("--password", required=True, help="Password for basic auth")
+@click.option(
+    "--output", required=True, help="Output path for usersfile (e.g., proxy/config/usersfile)"
+)
+def generate_usersfile_cmd(username, password, output):
+    """Generate an htpasswd usersfile using Docker (httpd:alpine)."""
+    from .usersfile import generate_usersfile
+
+    try:
+        generate_usersfile(username, password, output)
+        console.print(f"[green]✓ Usersfile written to {output}[/green]")
+    except Exception as e:
+        console.print(f"[red]Failed to generate usersfile: {e}[/red]")
 
 
 def main() -> None:
