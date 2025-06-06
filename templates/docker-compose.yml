@@ -45,6 +45,7 @@ services:
     networks:
       - default
       - monitoring
+      - traefik
 
   # Consul for service discovery and configuration
   # consul:
@@ -69,7 +70,11 @@ services:
 
   # Prometheus for metrics collection
   prometheus:
-    image: prom/prometheus:latest
+    build:
+      context: ./monitoring/prometheus
+      dockerfile_inline: |
+        FROM prom/prometheus:latest
+        COPY prometheus.yml /etc/prometheus/prometheus.yml
     container_name: prometheus
     restart: unless-stopped
     command:
@@ -86,6 +91,7 @@ services:
       - /workspace/proxy/monitoring/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
     networks:
+      - traefik
       - monitoring
       - default
     labels:
@@ -108,10 +114,11 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana:/etc/grafana:ro
     networks:
-      - default
+      - traefik
       - monitoring
+      - default
 
   # AlertManager for alerting
   # alertmanager:
@@ -146,8 +153,9 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     networks:
-      - default
+      - traefik
       - monitoring
+      - default
     labels:
       - "traefik.enable=false"
 
@@ -168,8 +176,9 @@ services:
     ports:
       - "8082:8080"
     networks:
-      - default
+      - traefik
       - monitoring
+      - default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.ddev`) || Host(`cadvisor.herringbank.com`)"
@@ -186,6 +195,9 @@ volumes:
     name: alertmanager_data
 
 networks:
+  traefik:
+    name: traefik
+    driver: bridge
   monitoring:
     name: monitoring
     driver: bridge

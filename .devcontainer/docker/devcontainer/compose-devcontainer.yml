@@ -1,9 +1,12 @@
 services:
-  devcontainer:
+  proxy:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: ./docker/devcontainer/Dockerfile
     command: sleep infinity
+    network_mode: host
+    container_name: devcontainer-proxy
+  # Use the same image as the devcontainer for consistency
     platform: linux/amd64
     volumes:
       - ../../..:/workspace:cached
