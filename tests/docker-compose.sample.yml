@@ -25,11 +25,11 @@ services:
         aliases:
           - alpine-utils
       rabbitmq:
-    deploy:
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.utility-router.middlewares=secure-headers
-        - traefik.http.routers.utility-router.rule=Host(`utility.ddev`) || Host(`utility.herringbank.com`)
+        # deploy:
+        # labels:
+        # - traefik.enable=true
+        # - traefik.http.routers.utility-router.middlewares=secure-headers
+        # - traefik.http.routers.utility-router.rule=Host(`utility.ddev`) || Host(`utility.herringbank.com`)
         ################################
         # MongoDB
         ################################
@@ -193,9 +193,9 @@ services:
       labels:
         - traefik.enable=true
         - traefik.http.routers.tumsnew-router.middlewares=secure-headers
-        # - traefik.http.routers.tumsnew-router.rule=Host(`tumsnew.ddev`) || Host(`tumsnew.herringbank.com`)
+        - traefik.http.routers.tumsnew-router.rule=Host(`tumsnew.ddev`) || Host(`tumsnew.herringbank.com`)
         - traefik.http.services.tumsnew-service.loadbalancer.server.port=9170
-        - traefik.http.services.tumsnew-service.loadbalancer.server.address=civpldocker03.herringbank.com
+        - traefik.http.services.tumsnew-service.loadbalancer.server.address=civpldocker03.herringbank.com:9170
         - traefik.http.services.tumsnew-service.loadbalancer.server.scheme=http
       ################################
       # NOTIFICATION SERVICE
@@ -693,6 +693,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.tupay-router.rule=Host(`tupay.ddev`) || Host(`tupay.herringbank.com`)
+        - traefik.http.services.tupay-service.loadbalancer.server.address=civpldocker03.herringbank.com:3004
     networks:
       inter_app:
         aliases:

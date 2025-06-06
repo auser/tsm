@@ -4,6 +4,7 @@ services:
     image: fp/traefik
     container_name: traefik
     restart: unless-stopped
+    network_mode: host
     user: "0:0" # Run as root to ensure Docker socket access
     command:
       - --api.dashboard=true
@@ -26,25 +27,23 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./config:/etc/traefik:ro
-    networks:
-      - traefik
-      - monitoring
+      - ./config/dynamic:/etc/traefik/dynamic:ro
+      - ./config/static:/etc/traefik/static:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.ddev`) || Host(`traefik.herringbank.com`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.services.traefik-proxy.loadbalancer.server.port=443"
       - "traefik.http.routers.traefik.service=api@internal"
 
   static:
     image: fp/static
     container_name: static
     restart: unless-stopped
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./static:/usr/share/nginx/html:ro
+    # volumes:
+    # - ./static:/usr/share/nginx/html:ro
     networks:
-      - traefik
+      - default
       - monitoring
 
   # Consul for service discovery and configuration
@@ -84,12 +83,11 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/rules:/etc/prometheus/rules:ro
+      - /workspace/proxy/monitoring/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
     networks:
       - monitoring
-      - traefik
+      - default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.ddev`) || Host(`prometheus.herringbank.com`)"
@@ -112,8 +110,8 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
+      - default
       - monitoring
-      - traefik
 
   # AlertManager for alerting
   # alertmanager:
@@ -148,6 +146,7 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     networks:
+      - default
       - monitoring
     labels:
       - "traefik.enable=false"
@@ -169,6 +168,7 @@ services:
     ports:
       - "8082:8080"
     networks:
+      - default
       - monitoring
     labels:
       - "traefik.enable=true"
@@ -186,10 +186,6 @@ volumes:
     name: alertmanager_data
 
 networks:
-  traefik:
-    name: traefik
-    driver: bridge
-    external: true
   monitoring:
     name: monitoring
     driver: bridge

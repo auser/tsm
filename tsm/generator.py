@@ -120,6 +120,8 @@ class ConfigGenerator:
         if not selected_label and address_labels:
             selected_label, selected_value = address_labels[0]
         if selected_label:
+            if not selected_value.startswith("http://"):
+                selected_value = f"http://{selected_value}"
             service_config["loadBalancer"]["servers"].append({"url": selected_value})
             address_set = True
             self.logger.debug(
@@ -132,6 +134,9 @@ class ConfigGenerator:
                     port = v
                     host = self.default_backend_host or service.name
                     url = f"http://{host}:{port}"
+                    # Ensure URL has http:// prefix
+                    if not url.startswith("http://"):
+                        url = f"http://{url}"
                     service_config["loadBalancer"]["servers"].append({"url": url})
                     address_set = True
                     self.logger.debug(f"Service {service.name}: Using port from label {k} = {v}")
@@ -381,23 +386,14 @@ class ConfigGenerator:
             shutil.rmtree(dockerfile_dir)
         shutil.copytree(TEMPLATE_DIR / "dockerfiles", dockerfile_dir)
 
-    def copy_alertmanager_config(self, output_dir: Path) -> None:
-        """Copy alertmanager.yml to output directory."""
+    def copy_monitoring_config(self, output_dir: Path) -> None:
+        """Copy monitoring config to output directory."""
         monitoring_dir = output_dir / "monitoring"
         monitoring_dir.mkdir(exist_ok=True)
-        alertmanager_src = TEMPLATE_DIR / "alertmanager.yml"
-        if alertmanager_src.exists():
-            shutil.copy2(alertmanager_src, monitoring_dir)
-            self.logger.info("Copied alertmanager.yml to output directory")
-
-    def copy_prometheus_config(self, output_dir: Path) -> None:
-        """Copy prometheus.yml to output directory."""
-        monitoring_dir = output_dir / "monitoring"
-        monitoring_dir.mkdir(exist_ok=True)
-        prometheus_src = TEMPLATE_DIR / "prometheus.yml"
-        if prometheus_src.exists():
-            shutil.copy2(prometheus_src, monitoring_dir)
-            self.logger.info("Copied prometheus.yml to output directory")
+        if monitoring_dir.exists():
+            shutil.rmtree(monitoring_dir)
+        shutil.copytree(TEMPLATE_DIR / "monitoring", monitoring_dir)
+        self.logger.info("Copied monitoring config to output directory")
 
     @staticmethod
     def write_yaml(data: dict[str, Any], file: TextIO) -> None:
@@ -462,8 +458,7 @@ class ConfigGenerator:
         self.copy_dockerfiles_to_output(output_dir)
 
         # Copy monitoring configs
-        self.copy_alertmanager_config(output_dir)
-        self.copy_prometheus_config(output_dir)
+        self.copy_monitoring_config(output_dir)
 
         return written_files
 
