@@ -423,7 +423,7 @@ class ConfigGenerator:
 
         # Generate and write Traefik config
         traefik_config = self.generate_traefik_config(services)
-        config_file = output_dir / "config.yml"
+        config_file = dynamic_config_dir / "config.yml"
         with open(config_file, "w") as f:
             self.write_yaml(traefik_config, f)
         written_files.append(config_file)

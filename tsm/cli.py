@@ -442,6 +442,13 @@ def init_config(
         console.print(f"[red]Error: {e}[/red]")
         sys.exit(1)
 
+@cli.command()
+def sync_config() -> None:
+    """Initialize named volumes for Traefik config."""
+
+    docker_manager = DockerManager()
+    docker_manager.init_volumes()
+
 
 @cli.command()
 @click.option("--all", "-a", is_flag=True, help="Clean all Docker resources")

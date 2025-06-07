@@ -4,31 +4,19 @@ services:
     image: fp/traefik
     container_name: traefik
     restart: unless-stopped
-    network_mode: host
-    user: "0:0" # Run as root to ensure Docker socket access
-    command:
-      - --api.dashboard=true
-      - --api.insecure=true
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=traefik
-      - --providers.file.directory=/etc/traefik/dynamic
-      - --providers.file.watch=true
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --metrics.prometheus=true
-      - --metrics.prometheus.addentrypointslabels=true
-      - --metrics.prometheus.addserviceslabels=true
-      - --log.level=INFO
-      - --accesslog=true
+    user: "0:0"
     ports:
       - "80:80"
       - "443:443"
       - "8080:8080"
+    networks:
+      - traefik
+      - monitoring
+      - default
     volumes:
+      # - ./config/dynamic:/etc/traefik/dynamic
+      # - ./config/static:/etc/traefik/static
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./config/dynamic:/etc/traefik/dynamic:ro
-      - ./config/static:/etc/traefik/static:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.ddev`) || Host(`traefik.herringbank.com`)"
@@ -46,27 +34,6 @@ services:
       - default
       - monitoring
       - traefik
-
-  # Consul for service discovery and configuration
-  # consul:
-  #   image: consul:1.15
-  #   container_name: consul
-  #   restart: unless-stopped
-  #   command: consul agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
-  #   environment:
-  #     - CONSUL_BIND_INTERFACE=eth0
-  #   ports:
-  #     - "8500:8500"
-  #     - "8600:8600/udp"
-  #   volumes:
-  #     - consul_data:/consul/data
-  #   networks:
-  #     - traefik
-  #     - monitoring
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.consul.rule=Host(`consul.ddev`) || Host(`consul.herringbank.com`)"
-  #     - "traefik.http.services.consul.loadbalancer.server.port=8500"
 
   # Prometheus for metrics collection
   prometheus:
@@ -88,7 +55,6 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /workspace/proxy/monitoring/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
     networks:
       - traefik
@@ -110,11 +76,13 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_DOMAIN=grafana.ddev
       - GF_SERVER_ROOT_URL=https://grafana.ddev
+      - GF_PATHS_CONFIG=/etc/grafana/grafana.ini
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana:/etc/grafana:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    user: "472" # grafana user
     networks:
       - traefik
       - monitoring
@@ -185,8 +153,6 @@ services:
       - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
 
 volumes:
-  consul_data:
-    name: consul_data
   prometheus_data:
     name: prometheus_data
   grafana_data:

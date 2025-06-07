@@ -19,41 +19,49 @@ RUN arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
 
 FROM docker.io/traefik:v3.1.6 AS dist
 
+ARG USERNAME=traefik
+ARG USER_UID=1001
+ARG USER_GID=$USER_UID
 # Install envsubst
-RUN apk update && apk add --no-cache gettext shadow
+RUN apk update && apk add --no-cache gettext shadow sudo \
+    && groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
 
 RUN apk add --no-cache libcap && \
     setcap 'cap_net_bind_service=+ep' /usr/local/bin/traefik
 
 # Copy basicAuth - insecure
-COPY ./config/usersfile /etc/traefik/.htpasswd
+COPY --chown=$USERNAME:$USERNAME ./config/usersfile /etc/traefik/.htpasswd
+# RUN chown -R $USERNAME:$USERNAME /etc/traefik/*.* /etc/traefik/.htpasswd
 
-COPY ./config/static/traefik.yml /etc/traefik/traefik.yaml
+COPY --chown=$USERNAME:$USERNAME ./config/static/traefik.yml /etc/traefik/traefik.yaml
 # COPY ./config/dynamic.yaml /etc/traefik/dynamic.yaml
 
 # Should we do it this way? 
 # Nope, but good enough for now
 
 # Server certificates
-COPY ./certs/traefik/traefik-server.pem /etc/traefik/server.pem
-COPY ./certs/traefik/traefik-server-key.pem /etc/traefik/server-key.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik/traefik-server.pem /etc/traefik/server.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik/traefik-server-key.pem /etc/traefik/server-key.pem
 
-COPY ./certs/traefik/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
-COPY ./certs/traefik/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
 
-COPY ./certs/traefik/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
-COPY ./certs/traefik/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
 
 # Client certificates
 # COPY ./certs/traefik/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
 # COPY ./certs/traefik/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
 
-COPY ./certs/ca.pem /etc/traefik/ca.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/ca.pem /etc/traefik/ca.pem
 
 COPY --from=etcd /bin/etcd /bin/etcd
 COPY --from=etcd /bin/etcdctl /bin/etcdctl
 
-COPY ./dockerfiles/traefik/traefik-entrypoint.sh /docker-entrypoint.sh
+COPY --chown=traefik:traefik ./dockerfiles/traefik/traefik-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 RUN chmod 644 /etc/traefik/*.pem && \
@@ -64,14 +72,16 @@ VOLUME      /logs
 
 EXPOSE      2379 2380 4001 7001
 
-RUN groupadd -r traefik && \
-    useradd -ms /bin/sh -d /home/traefik -g traefik traefik
-
 RUN chown traefik -R /etc/traefik && \
     mkdir -p /logs && chown traefik -R /logs
 
-USER traefik
+# Add this after your existing COPY commands
+COPY --chown=$USERNAME:$USERNAME ./config/dynamic/ /etc/traefik/dynamic/
+COPY --chown=$USERNAME:$USERNAME ./config/static/ /etc/traefik/static/
 
-# ENTRYPOINT ["/docker-entrypoint.sh"]
+USER $USERNAME
+
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["traefik"]
 

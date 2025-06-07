@@ -19,4 +19,10 @@ export PATH="$HOME/.local/bin:$PATH"
 # Install uv packages
 uv sync
 
+# Add alias for docker-compose
+echo "alias dc='docker-compose -f ./proxy/docker-compose.yml'" >> ~/.zshrc
+
+# Reload zshrc
+source ~/.zshrc
+
 echo "Ready"
