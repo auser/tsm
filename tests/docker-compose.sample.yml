@@ -220,6 +220,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.notif-router.middlewares=secure-headers
     networks:
       inter_app:
         aliases:
@@ -249,6 +253,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.pms-router.middlewares=secure-headers
+        - traefik.http.routers.pms-router.rule=Host(`pms.ddev`) || Host(`pms.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -277,6 +286,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.customerms-router.middlewares=secure-headers
+        - traefik.http.routers.customerms-router.rule=Host(`customerms.ddev`) || Host(`customerms.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -306,6 +320,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.realtime-router.middlewares=secure-headers
+        - traefik.http.routers.realtime-router.rule=Host(`realtime.ddev`) || Host(`realtime.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -338,6 +357,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.compliance-router.middlewares=secure-headers
+        - traefik.http.routers.compliance-router.rule=Host(`compliance.ddev`) || Host(`compliance.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -371,6 +395,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.fpa-router.middlewares=secure-headers
+        - traefik.http.routers.fpa-router.rule=Host(`fpa.ddev`) || Host(`fpa.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -406,6 +435,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.gator-router.middlewares=secure-headers
+        - traefik.http.routers.gator-router.rule=Host(`gator.ddev`) || Host(`gator.herringbank.com`)
     networks:
       rabbitmq:
       inter_app:
@@ -451,6 +485,11 @@ services:
     # gator settlement requires a lot of env vars unfortunately
     environment:
       <<: *default_tz
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.gatorst-router.middlewares=secure-headers
+        - traefik.http.routers.gatorst-router.rule=Host(`gatorst.ddev`) || Host(`gatorst.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -491,6 +530,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.ams-router.middlewares=secure-headers
+        - traefik.http.routers.ams-router.rule=Host(`ams.ddev`) || Host(`ams.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -529,6 +573,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.bbm-router.middlewares=secure-headers
+        - traefik.http.routers.bbm-router.rule=Host(`bbm.ddev`) || Host(`bbm.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -559,6 +608,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.cardms-router.middlewares=secure-headers
+        - traefik.http.routers.cardms-router.rule=Host(`cardms.ddev`) || Host(`cardms.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -596,6 +650,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.pps-router.middlewares=secure-headers
+        - traefik.http.routers.pps-router.rule=Host(`pps.ddev`) || Host(`pps.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -641,6 +700,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.premier-pay-tools-router.middlewares=secure-headers
+        - traefik.http.routers.premier-pay-tools-router.rule=Host(`premier-pay-tools.ddev`) || Host(`premier-pay-tools.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -696,8 +760,8 @@ services:
     deploy:
       labels:
         - traefik.enable=true
+        - traefik.http.routers.tupay-router.middlewares=secure-headers
         - traefik.http.routers.tupay-router.rule=Host(`tupay.ddev`) || Host(`tupay.herringbank.com`)
-        - traefik.http.services.tupay-service.loadbalancer.server.address=civpldocker03.herringbank.com:3004
     networks:
       inter_app:
         aliases:
@@ -746,6 +810,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.erpis-router.middlewares=secure-headers
+        - traefik.http.routers.erpis-router.rule=Host(`erpis.ddev`) || Host(`erpis.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -779,6 +848,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.cardissapi-router.middlewares=secure-headers
+        - traefik.http.routers.cardissapi-router.rule=Host(`cardissapi.ddev`) || Host(`cardissapi.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -821,6 +895,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.cardiss-router.middlewares=secure-headers
+        - traefik.http.routers.cardiss-router.rule=Host(`cardiss.ddev`) || Host(`cardiss.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -864,6 +943,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.cori-router.middlewares=secure-headers
+        - traefik.http.routers.cori-router.rule=Host(`cori.ddev`) || Host(`cori.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -896,6 +980,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.railssso-router.middlewares=secure-headers
+        - traefik.http.routers.railssso-router.rule=Host(`railssso.ddev`) || Host(`railssso.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -935,6 +1024,11 @@ services:
       <<: *default_tz
       REDIS_URL: redis://redis:6370
       NODE_ENV: production
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.fptools-router.middlewares=secure-headers
+        - traefik.http.routers.fptools-router.rule=Host(`fptools.ddev`) || Host(`fptools.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -997,6 +1091,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.ofac-router.middlewares=secure-headers
+        - traefik.http.routers.ofac-router.rule=Host(`ofac.ddev`) || Host(`ofac.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1024,6 +1123,11 @@ services:
       <<: *default_logging
     environment:
       <<: *default_tz
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.broadcaster-cp-router.middlewares=secure-headers
+        - traefik.http.routers.broadcaster-cp-router.rule=Host(`broadcaster-cp.ddev`) || Host(`broadcaster-cp.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1048,6 +1152,11 @@ services:
       <<: *default_logging
     environment:
       <<: *default_tz
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.broadcaster-rt-router.middlewares=secure-headers
+        - traefik.http.routers.broadcaster-rt-router.rule=Host(`broadcaster-rt.ddev`) || Host(`broadcaster-rt.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1073,6 +1182,11 @@ services:
       <<: *default_logging
     environment:
       <<: *default_tz
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.broadcaster-se-router.middlewares=secure-headers
+        - traefik.http.routers.broadcaster-se-router.rule=Host(`broadcaster-se.ddev`) || Host(`broadcaster-se.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1103,6 +1217,11 @@ services:
     #   interval: 5s
     #   timeout: 5s
     #   retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.rti-b1-router.middlewares=secure-headers
+        - traefik.http.routers.rti-b1-router.rule=Host(`rti-b1.ddev`) || Host(`rti-b1.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1133,6 +1252,11 @@ services:
     #   interval: 5s
     #   timeout: 5s
     #   retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.rti-b3-router.middlewares=secure-headers
+        - traefik.http.routers.rti-b3-router.rule=Host(`rti-b3.ddev`) || Host(`rti-b3.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1162,6 +1286,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.isscore-router.middlewares=secure-headers
+        - traefik.http.routers.isscore-router.rule=Host(`isscore.ddev`) || Host(`isscore.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1194,6 +1323,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.timestamp-router.middlewares=secure-headers
+        - traefik.http.routers.timestamp-router.rule=Host(`timestamp.ddev`) || Host(`timestamp.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1222,6 +1356,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.picps-router.middlewares=secure-headers
+        - traefik.http.routers.picps-router.rule=Host(`picps.ddev`) || Host(`picps.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1250,6 +1389,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.picimage-router.middlewares=secure-headers
+        - traefik.http.routers.picimage-router.rule=Host(`picimage.ddev`) || Host(`picimage.herringbank.com`)
     networks:
       inter_app:
         aliases:
@@ -1285,6 +1429,11 @@ services:
     #   - 9210:9210
     # command: sleep infinity
     # command: /bin/sh -c "/app/scripts/run.sh"
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.gach-router.middlewares=secure-headers
+        - traefik.http.routers.gach-router.rule=Host(`gach.ddev`) || Host(`gach.herringbank.com`)
     environment:
       <<: *default_tz
     logging:
@@ -1316,6 +1465,11 @@ services:
       - 9220:9220
     # command: sleep infinity
     # command: /bin/sh -c "java -jar /app/ibs-load-3.4.0.jar --spring.config.location=/app/config/application.yml"
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.ibs-router.middlewares=secure-headers
+        - traefik.http.routers.ibs-router.rule=Host(`ibs.ddev`) || Host(`ibs.herringbank.com`)
     environment:
       <<: *default_tz
     healthcheck:
@@ -1355,6 +1509,11 @@ services:
     # command: /bin/sh -c "java -jar /app/RejectProcessor-1.0.10.jar"
     logging:
       <<: *default_logging
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.reject-router.middlewares=secure-headers
+        - traefik.http.routers.reject-router.rule=Host(`reject.ddev`) || Host(`reject.herringbank.com`)
     environment:
       <<: *default_tz
     networks:
@@ -1382,6 +1541,11 @@ services:
     logging:
       <<: *default_logging
     command: /app/bin/rails server -b 0.0.0.0 -e production
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.card-production-web-router.middlewares=secure-headers
+        - traefik.http.routers.card-production-web-router.rule=Host(`card-production-web.ddev`) || Host(`card-production-web.herringbank.com`)
     environment:
       <<: *default_tz
     healthcheck:
