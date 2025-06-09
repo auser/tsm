@@ -15,18 +15,41 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Set up Python
-        run: uv python install
+        run: |
+          # Change to project directory if needed
+          if [ -n "$PROJECT_DIR" ]; then
+            cd "$PROJECT_DIR"
+          fi
+          uv python install
 
       - name: Sync dependencies
-        run: uv sync
+        run: |
+          # Change to project directory if needed
+          if [ -n "$PROJECT_DIR" ]; then
+            cd "$PROJECT_DIR"
+          fi
+          uv sync
 
       - name: Run tests (optional)
         run: |
-          uv run pytest || echo "No tests found, skipping..."
+          # Change to project directory if needed
+          if [ -n "$PROJECT_DIR" ]; then
+            cd "$PROJECT_DIR"
+          fi
+          if [ -d "tests" ] || ls test_*.py 1> /dev/null 2>&1 || grep -q "pytest\|test" pyproject.toml; then
+            uv run pytest || echo "Tests failed or no test runner found"
+          else
+            echo "No tests found, skipping..."
+          fi
 
       - name: Build wheel and sdist
         run: |
+          # Change to project directory if needed
+          if [ -n "$PROJECT_DIR" ]; then
+            cd "$PROJECT_DIR"
+          fi
           uv build
+          echo "Build artifacts:"
           ls -la dist/
 
       - name: Prepare installer script
@@ -35,8 +58,8 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/}
           VERSION=${VERSION#v}
 
-          # Get project name from pyproject.toml using grep and sed
-          PROJECT_NAME=$(grep -m 1 '^name = ' pyproject.toml | sed 's/^name = "\(.*\)"$/\1/')
+          # Get project name from pyproject.toml
+          PROJECT_NAME=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")
 
           # Find the wheel file
           WHEEL_NAME=$(ls dist/*.whl | head -1 | xargs basename)

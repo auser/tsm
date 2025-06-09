@@ -1,13 +1,13 @@
 #!/bin/bash
-# tsm installer
-# This script installs tsm using uv
+# {{PROJECT_NAME}} installer
+# This script installs {{PROJECT_NAME}} using uv
 set -e
 
 # Configuration (will be replaced by CI)
-PROJECT_NAME="tsm"
-GITHUB_REPO="${GITHUB_REPO:-auser/tsm}"
-VERSION="${VERSION:-}"
-WHEEL_NAME=""
+PROJECT_NAME="{{PROJECT_NAME}}"
+GITHUB_REPO="{{GITHUB_REPO}}"
+VERSION="{{VERSION}}"
+WHEEL_NAME="{{WHEEL_NAME}}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local}"
 BIN_DIR="$INSTALL_DIR/bin"
 
@@ -88,57 +88,13 @@ ensure_uv() {
     info "uv installed successfully"
 }
 
-# Fetch latest version from GitHub
-fetch_latest_version() {
-    local latest_version
-    local api_url="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-    
-    log "Fetching latest version from GitHub: $GITHUB_REPO"
-    
-    if command -v curl >/dev/null 2>&1; then
-        latest_version=$(curl --proto '=https' --tlsv1.2 -fsSL "$api_url" 2>/dev/null | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
-    elif command -v wget >/dev/null 2>&1; then
-        latest_version=$(wget --https-only --secure-protocol=TLSv1_2 -qO- "$api_url" 2>/dev/null | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
-    else
-        error "Neither curl nor wget is available"
-    fi
-    
-    if [ -z "$latest_version" ]; then
-        warn "Failed to fetch latest version from GitHub. Using default version."
-        echo "v0.1.0"  # Default version if fetch fails
-        return
-    fi
-    
-    echo "$latest_version"
-}
-
-# Format version with v prefix
-format_version() {
-    local version=$1
-    # Remove v prefix if present
-    version=${version#v}
-    # Add v prefix
-    echo "v$version"
-}
-
 # Install the project
 install_project() {
-    # Set version if not provided
-    if [ -z "$VERSION" ]; then
-        VERSION=$(fetch_latest_version)
-        info "Using latest version: $VERSION"
-    else
-        VERSION=$(format_version "$VERSION")
-    fi
-    
-    # Set wheel name based on version (without v prefix)
-    WHEEL_NAME="${PROJECT_NAME}-${VERSION#v}-py3-none-any.whl"
-    
-    info "Installing $PROJECT_NAME $VERSION..."
+    info "Installing $PROJECT_NAME v$VERSION..."
     
     # Method 1: Try installing from GitHub release wheel
     if [ -n "$WHEEL_NAME" ]; then
-        local wheel_url="https://github.com/$GITHUB_REPO/releases/download/$VERSION/$WHEEL_NAME"
+        local wheel_url="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$WHEEL_NAME"
         log "Attempting install from GitHub release wheel..."
         
         if uv tool install --from "$wheel_url" "$PROJECT_NAME" >/dev/null 2>&1; then
@@ -149,14 +105,14 @@ install_project() {
     
     # Method 2: Try installing from PyPI
     log "Attempting install from PyPI..."
-    if uv tool install "$PROJECT_NAME==${VERSION#v}" >/dev/null 2>&1; then
+    if uv tool install "$PROJECT_NAME==$VERSION" >/dev/null 2>&1; then
         info "Installed from PyPI"
         return
     fi
     
     # Method 3: Try installing from git tag
     log "Attempting install from git..."
-    if uv tool install "git+https://github.com/$GITHUB_REPO@$VERSION" >/dev/null 2>&1; then
+    if uv tool install "git+https://github.com/$GITHUB_REPO@v$VERSION" >/dev/null 2>&1; then
         info "Installed from git"
         return
     fi
@@ -164,7 +120,7 @@ install_project() {
     # Method 4: Try latest from git (fallback)
     warn "Specific version not found, trying latest from git..."
     if uv tool install "git+https://github.com/$GITHUB_REPO" >/dev/null 2>&1; then
-        warn "Installed latest version from git (not $VERSION)"
+        warn "Installed latest version from git (not v$VERSION)"
         return
     fi
     
@@ -298,19 +254,10 @@ OPTIONS:
 
 ENVIRONMENT VARIABLES:
     INSTALL_DIR    Installation directory (default: ~/.local)
-    VERSION        Specific version to install (default: latest)
-                  Can be specified with or without 'v' prefix (e.g., 'v0.1.0' or '0.1.0')
-    GITHUB_REPO    GitHub repository in format 'owner/repo' (default: auser/tsm)
 
 EXAMPLES:
-    # Standard installation (latest version)
+    # Standard installation
     curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh
-    
-    # Install specific version
-    VERSION=0.1.0 curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh
-    
-    # Install from specific repository
-    GITHUB_REPO=your-org/your-repo curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh
     
     # Install without modifying shell config
     curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh -s -- --no-modify-path
