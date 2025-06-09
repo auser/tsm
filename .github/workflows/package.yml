@@ -234,13 +234,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --group dev
+          # Install project dependencies
+          uv pip install -e .
 
-      - name: Build binary with PyInstaller
-        run: |
           # Install PyInstaller
           uv pip install pyinstaller
 
+      - name: Build binary with PyInstaller
+        run: |
           # Build the binary
           pyinstaller --onefile --name tsm src/tsm/cli.py
 
