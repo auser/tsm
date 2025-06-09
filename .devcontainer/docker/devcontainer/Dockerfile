@@ -32,6 +32,10 @@ RUN sudo apt-get update \
     && sudo tar -C /usr/local -xzf $GO_DIST \
     && sudo rm -rf $GO_DIST
 
+# Install Rust and mdBook
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . $HOME/.cargo/env \
+    && cargo install mdbook
 
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
     git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \

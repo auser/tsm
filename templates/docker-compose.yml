@@ -84,7 +84,7 @@ services:
       - GF_SERVER_ROOT_URL=https://grafana.ddev
       - GF_PATHS_CONFIG=/etc/grafana/grafana.ini
     ports:
-      - "3000:3000"
+      - "4000:4000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -96,7 +96,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.ddev`) || Host(`grafana.herringbank.com`)"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.services.grafana.loadbalancer.server.port=4000"
       - "traefik.http.routers.grafana.middlewares=monitoring-secure"
 
   # AlertManager for alerting

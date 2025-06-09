@@ -13,6 +13,26 @@ TSM is a comprehensive tool for managing Traefik proxy configurations in Docker 
 - **User Management**: Basic auth user file generation
 - **Docker Integration**: Seamless integration with Docker and Docker Compose
 
+## Installation
+
+### Using Homebrew (macOS/Linux)
+
+```bash
+brew install auser/tap/tsm
+```
+
+### Using the Install Script
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/auser/tsm/main/install.sh | sh
+```
+
+### Using pip
+
+```bash
+pip install tsm
+```
+
 ## Quickstart
 
 1. **Install Dependencies**
