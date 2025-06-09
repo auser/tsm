@@ -1,39 +1,97 @@
-#!/usr/bin/env bash
+#!/bin/sh
+set -e
 
-set -euo pipefail
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-# Default installation directory
-INSTALL_DIR="${HOME}/.local/bin"
-TSM_VERSION="0.1.0"
+# Version
+VERSION="0.1.0"
 
-# Detect OS and architecture
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-ARCH="$(uname -m)"
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
-# Map architecture to Python wheel format
-case "$ARCH" in
-  "x86_64") ARCH="x86_64" ;;
-  "arm64") ARCH="aarch64" ;;
-  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-esac
+# Print error and exit
+error() {
+    echo -e "${RED}ERROR:${NC} $1" >&2
+    exit 1
+}
 
-# Create temporary directory
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
+# Print warning
+warn() {
+    echo -e "${YELLOW}WARNING:${NC} $1"
+}
 
-# Download and install
-echo "Installing tsm v${TSM_VERSION}..."
-python3 -m pip install --user "tsm==${TSM_VERSION}"
+# Print success
+success() {
+    echo -e "${GREEN}SUCCESS:${NC} $1"
+}
 
-# Ensure the installation directory exists
-mkdir -p "$INSTALL_DIR"
+# Install Python and pip if not present
+install_python() {
+    if command_exists apt-get; then
+        echo "Installing Python and pip..."
+        sudo apt-get update
+        sudo apt-get install -y python3 python3-pip python3-venv
+    elif command_exists yum; then
+        echo "Installing Python and pip..."
+        sudo yum install -y python3 python3-pip
+    elif command_exists brew; then
+        echo "Installing Python and pip..."
+        brew install python
+    else
+        error "Could not install Python. Please install Python 3 and pip manually."
+    fi
+}
 
-# Add to PATH if not already present
-if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-  echo "Adding $INSTALL_DIR to your PATH..."
-  echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "${HOME}/.bashrc"
-  echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "${HOME}/.zshrc"
-fi
+# Create and activate virtual environment
+setup_venv() {
+    echo "Setting up Python virtual environment..."
+    python3 -m venv .venv
+    . .venv/bin/activate
+}
 
-echo "Installation complete! You may need to restart your shell or run:"
-echo "source ~/.bashrc  # or source ~/.zshrc" 
+# Install uv if not present
+install_uv() {
+    if ! command_exists uv; then
+        echo "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+    fi
+}
+
+# Main installation process
+main() {
+    echo "Installing tsm v${VERSION}..."
+
+    # Check for Python
+    if ! command_exists python3; then
+        warn "Python 3 not found. Installing..."
+        install_python
+    fi
+
+    # Check for pip
+    if ! command_exists pip3; then
+        warn "pip not found. Installing..."
+        install_python
+    fi
+
+    # Install uv
+    install_uv
+
+    # Setup virtual environment
+    setup_venv
+
+    # Install tsm
+    echo "Installing tsm..."
+    pip install tsm
+
+    success "tsm v${VERSION} has been installed successfully!"
+    echo "To start using tsm, run: source .venv/bin/activate"
+}
+
+# Run main installation
+main 
