@@ -1,6 +1,9 @@
 import shutil
 import sys
 from pathlib import Path
+import os
+import pwd
+import grp
 
 from loguru import logger
 
@@ -403,3 +406,299 @@ def copy_prod_certs_if_present():
                 logger.info(f"Copied {src_path} -> {dst_path}")
         except Exception as e:
             logger.warning(f"Could not copy {src_path} -> {dst_path}: {e}")
+
+
+def set_file_permissions(file_path: Path, permissions: dict | None) -> None:
+    """
+    Set file permissions, owner, and group.
+    
+    Args:
+        file_path: Path to the file
+        permissions: Dictionary containing:
+            - mode: File permissions (octal, can be string or int)
+            - owner: File owner
+            - group: File group
+            
+    If permissions is None, no changes are made.
+    If mode is not specified, defaults to 0o644.
+    If owner is specified but group is not, group defaults to root.
+    If group is specified but owner is not, owner defaults to root.
+    If specified owner/group don't exist, falls back to current user/group.
+    """
+    if not permissions:
+        return
+
+    import os
+    import pwd
+    import grp
+
+    try:
+        # Convert mode to integer if it's a string
+        mode = permissions.get('mode')
+        if mode is not None:
+            if isinstance(mode, str):
+                # Handle string octal values (e.g., "644" or "0o644")
+                if mode.startswith('0o'):
+                    mode = int(mode, 8)
+                else:
+                    mode = int(mode, 8) if mode.isdigit() else int(mode)
+            else:
+                mode = int(mode)
+        else:
+            mode = 0o644  # Default mode if not specified
+
+        # Set file permissions
+        os.chmod(file_path, mode)
+
+        # Set ownership if either owner or group is specified
+        owner = permissions.get('owner')
+        group = permissions.get('group')
+        if owner is not None or group is not None:
+            # Get current user/group as fallback
+            current_uid = os.getuid()
+            current_gid = os.getgid()
+            current_user = pwd.getpwuid(current_uid).pw_name
+            current_group = grp.getgrgid(current_gid).gr_name
+
+            # Try to get specified owner/group, fall back to current if not found
+            try:
+                uid = pwd.getpwnam(owner).pw_uid if owner else current_uid
+            except KeyError:
+                logger.warning(f"User '{owner}' not found, using current user '{current_user}'")
+                uid = current_uid
+
+            try:
+                gid = grp.getgrnam(group).gr_gid if group else current_gid
+            except KeyError:
+                logger.warning(f"Group '{group}' not found, using current group '{current_group}'")
+                gid = current_gid
+
+            os.chown(file_path, uid, gid)
+
+    except Exception as e:
+        logger.warning(f"Could not set permissions for {file_path}: {e}")
+
+
+def get_config_value(config: dict, key: str, cli_value: str | None, env_key: str | None) -> str:
+    """Get value from config, CLI, or environment in that order."""
+    if cli_value:
+        return cli_value
+    if env_key and os.environ.get(env_key):
+        return os.environ[env_key]
+    return config.get(key, "")
+
+
+def generate_certs_from_config(config_path: str, output_dir: str, cert_config_dir: str, console, cli_args: dict = None) -> None:
+    """
+    Generate certificates based on a YAML configuration file.
+    
+    The YAML config should have this structure:
+    defaults:
+      common_name: "traefik"
+      hosts: "localhost,127.0.0.1"
+      domain: "example.com"
+      profile: "server"
+      permissions:
+        mode: 0o644
+        owner: "traefik"
+        group: "traefik"
+    
+    ca:
+      generate: true
+      name: "ca"
+      common_name: "My CA"
+      hosts: "localhost,127.0.0.1"
+      copy:
+        from: "/path/to/certs"
+        files:
+          - "ca.pem"
+          - "ca-key.pem"
+      permissions:
+        mode: 0o644
+        owner: "traefik"
+        group: "traefik"
+    
+    certificates:
+      - name: "traefik-server"
+        type: "server"
+        common_name: "traefik"
+        hosts: "localhost,127.0.0.1,traefik,example.com,*.example.com"
+        profile: "server"
+        copy:
+          from: "/path/to/certs"
+          files:
+            - "traefik-server.pem"
+            - "traefik-server-key.pem"
+        permissions:
+          mode: 0o644
+          owner: "traefik"
+          group: "traefik"
+    
+    bundles:
+      traefik:
+        - name: "traefik-server"
+          source: "traefik-server"
+          copy: true
+          permissions:
+            mode: 0o644
+            owner: "traefik"
+            group: "traefik"
+    """
+    import yaml
+    from pathlib import Path
+    
+    config_path = Path(config_path)
+    output_dir = Path(output_dir)
+    cert_config_dir = Path(cert_config_dir)
+    cli_args = cli_args or {}
+    
+    if not config_path.exists():
+        console.print(f"[red]Certificate config file not found: {config_path}[/red]")
+        sys.exit(1)
+        
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    
+    # Get defaults
+    defaults = config.get('defaults', {})
+    
+    # Generate or use CA
+    ca_config = config.get('ca', {})
+    if ca_config.get('generate', True):
+        # Try to copy existing CA first
+        if 'copy' in ca_config:
+            copy_dir = Path(ca_config['copy']['from'])
+            copied = False
+            for file_name in ca_config['copy']['files']:
+                src_file = copy_dir / file_name
+                if src_file.exists():
+                    dst_file = output_dir / file_name
+                    shutil.copy(src_file, dst_file)
+                    if 'permissions' in ca_config:
+                        set_file_permissions(dst_file, ca_config['permissions'])
+                    copied = True
+                    console.print(f"[green]Copied CA file {file_name} from {copy_dir}[/green]")
+            
+            if not copied:
+                console.print(f"[yellow]No CA files found in {copy_dir}, generating new CA...[/yellow]")
+                generate_certs(
+                    "ca",
+                    ca_config.get('name', 'ca'),
+                    get_config_value(ca_config, 'common_name', cli_args.get('common_name'), 'COMMON_NAME'),
+                    get_config_value(ca_config, 'hosts', cli_args.get('hosts'), 'HOSTS'),
+                    str(output_dir),
+                    str(cert_config_dir),
+                    "server",
+                    get_config_value(ca_config, 'domain', cli_args.get('domain'), 'DOMAIN'),
+                    console
+                )
+        else:
+            generate_certs(
+                "ca",
+                ca_config.get('name', 'ca'),
+                get_config_value(ca_config, 'common_name', cli_args.get('common_name'), 'COMMON_NAME'),
+                get_config_value(ca_config, 'hosts', cli_args.get('hosts'), 'HOSTS'),
+                str(output_dir),
+                str(cert_config_dir),
+                "server",
+                get_config_value(ca_config, 'domain', cli_args.get('domain'), 'DOMAIN'),
+                console
+            )
+    
+    # Generate individual certificates
+    for cert_config in config.get('certificates', []):
+        cert_type = cert_config.get('type', 'server')
+        cert_name = cert_config['name']
+        cert_dir = output_dir / cert_type
+        cert_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Try to copy existing certificate first
+        if 'copy' in cert_config:
+            copy_dir = Path(cert_config['copy']['from'])
+            copied = False
+            for file_name in cert_config['copy']['files']:
+                src_file = copy_dir / file_name
+                if src_file.exists():
+                    dst_file = cert_dir / file_name
+                    shutil.copy(src_file, dst_file)
+                    if 'permissions' in cert_config:
+                        set_file_permissions(dst_file, cert_config['permissions'])
+                    copied = True
+                    console.print(f"[green]Copied certificate {file_name} from {copy_dir}[/green]")
+            
+            if not copied:
+                console.print(f"[yellow]No certificate files found in {copy_dir}, generating new certificate...[/yellow]")
+                generate_certs(
+                    cert_type,
+                    cert_name,
+                    get_config_value(cert_config, 'common_name', cli_args.get('common_name'), 'COMMON_NAME'),
+                    get_config_value(cert_config, 'hosts', cli_args.get('hosts'), 'HOSTS'),
+                    str(cert_dir),
+                    str(cert_config_dir),
+                    cert_config.get('profile', defaults.get('profile', 'server')),
+                    get_config_value(cert_config, 'domain', cli_args.get('domain'), 'DOMAIN'),
+                    console
+                )
+        else:
+            generate_certs(
+                cert_type,
+                cert_name,
+                get_config_value(cert_config, 'common_name', cli_args.get('common_name'), 'COMMON_NAME'),
+                get_config_value(cert_config, 'hosts', cli_args.get('hosts'), 'HOSTS'),
+                str(cert_dir),
+                str(cert_config_dir),
+                cert_config.get('profile', defaults.get('profile', 'server')),
+                get_config_value(cert_config, 'domain', cli_args.get('domain'), 'DOMAIN'),
+                console
+            )
+    
+    # Handle bundles
+    for bundle_name, bundle_certs in config.get('bundles', {}).items():
+        bundle_dir = output_dir / bundle_name
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        
+        for cert_config in bundle_certs:
+            source_name = cert_config['source']
+            target_name = cert_config['name']
+            
+            # Find source certificate
+            source_cert = None
+            for cert in config.get('certificates', []):
+                if cert['name'] == source_name:
+                    source_cert = cert
+                    break
+            
+            if not source_cert:
+                console.print(f"[red]Source certificate '{source_name}' not found for bundle '{bundle_name}'[/red]")
+                continue
+            
+            if cert_config.get('copy', False):
+                # Copy existing certificate
+                source_dir = output_dir / source_cert['type']
+                source_pem = source_dir / f"{source_name}.pem"
+                source_key = source_dir / f"{source_name}-key.pem"
+                target_pem = bundle_dir / f"{target_name}.pem"
+                target_key = bundle_dir / f"{target_name}-key.pem"
+                
+                if source_pem.exists() and source_key.exists():
+                    shutil.copy(source_pem, target_pem)
+                    shutil.copy(source_key, target_key)
+                    if 'permissions' in cert_config:
+                        set_file_permissions(target_pem, cert_config['permissions'])
+                        set_file_permissions(target_key, cert_config['permissions'])
+                    console.print(f"[green]Copied {source_name} to {target_name} in {bundle_name} bundle[/green]")
+                else:
+                    console.print(f"[red]Source certificate files not found for {source_name}[/red]")
+            else:
+                # Generate new certificate
+                generate_certs(
+                    source_cert['type'],
+                    target_name,
+                    get_config_value(source_cert, 'common_name', cli_args.get('common_name'), 'COMMON_NAME'),
+                    get_config_value(source_cert, 'hosts', cli_args.get('hosts'), 'HOSTS'),
+                    str(bundle_dir),
+                    str(cert_config_dir),
+                    source_cert.get('profile', defaults.get('profile', 'server')),
+                    get_config_value(source_cert, 'domain', cli_args.get('domain'), 'DOMAIN'),
+                    console
+                )

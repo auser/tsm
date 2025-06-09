@@ -1,0 +1,68 @@
+# Certificate Configuration
+# This file defines all certificates to be generated and their bundles
+
+# Global defaults that can be overridden by individual certificates
+defaults:
+  common_name: "traefik"  # Can be overridden by CLI --common-name or env COMMON_NAME
+  hosts: "localhost,127.0.0.1,traefik"  # Can be overridden by CLI --hosts or env HOSTS
+  domain: "example.com"  # Can be overridden by CLI --domain or env DOMAIN
+  profile: "server"
+  permissions:
+    mode: 0o644  # File permissions (octal)
+    owner: "traefik"  # File owner
+    group: "traefik"  # File group
+
+# CA Configuration
+ca:
+  generate: true  # Set to false to use existing CA
+  name: "ca"
+  common_name: "FinancialPayments CA"
+  hosts: "localhost,127.0.0.1"
+  domain: "example.com"
+  # No permissions specified - no changes made to file permissions
+
+# Individual Certificates
+certificates:
+  # Example 1: No permissions specified - no changes made
+  - name: "cert1"
+    type: "server"
+    common_name: "cert1"
+    hosts: "localhost,127.0.0.1,cert1"
+
+  # Example 2: Only mode specified - defaults to current user:group
+  - name: "cert2"
+    type: "server"
+    common_name: "cert2"
+    hosts: "localhost,127.0.0.1,cert2"
+    permissions:
+      mode: 0o600
+
+  # Example 3: Only owner specified - defaults to current group
+  - name: "cert3"
+    type: "server"
+    common_name: "cert3"
+    hosts: "localhost,127.0.0.1,cert3"
+    permissions:
+      owner: "traefik"
+
+  # Example 4: Full permissions specified
+  - name: "cert4"
+    type: "server"
+    common_name: "cert4"
+    hosts: "localhost,127.0.0.1,cert4"
+    permissions:
+      mode: 0o600
+      owner: "traefik"
+      group: "traefik"
+
+# Certificate Bundles
+bundles:
+  # Example bundle
+  example:
+    - name: "bundle-cert1"
+      source: "cert1"
+      copy: true
+      permissions:
+        mode: 0o644
+        owner: "traefik"
+        group: "traefik" 

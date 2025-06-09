@@ -395,6 +395,14 @@ class ConfigGenerator:
         shutil.copytree(TEMPLATE_DIR / "monitoring", monitoring_dir)
         self.logger.info("Copied monitoring config to output directory")
 
+    def copy_cert_config_template(self, output_dir: Path) -> Path:
+        """Copy certificate configuration template to output directory."""
+        cert_config = output_dir / "cert-config.yml"
+        if not cert_config.exists():
+            shutil.copy(TEMPLATE_DIR / "cert-config.yml", cert_config)
+            self.logger.info(f"Created {cert_config}")
+        return cert_config
+
     @staticmethod
     def write_yaml(data: dict[str, Any], file: TextIO) -> None:
         """Write data as YAML to file."""
@@ -459,6 +467,9 @@ class ConfigGenerator:
 
         # Copy monitoring configs
         self.copy_monitoring_config(output_dir)
+
+        # Copy certificate configuration template
+        self.copy_cert_config_template(output_dir)
 
         return written_files
 

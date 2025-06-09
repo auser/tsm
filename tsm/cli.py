@@ -427,15 +427,21 @@ def init_config(
         # Generate cert templates in cert-config
         cert_config_dir = base_dir / "cert-config"
         created_files.extend(generator.generate_cert_templates(cert_config_dir, force=True))
+        
+        # Copy certificate configuration template
+        cert_config = generator.copy_cert_config_template(base_dir)
+        created_files.append(cert_config)
 
         console.print("[green]✓ Default configuration files created:[/green]")
         for file_path in created_files:
             console.print(f"  • {file_path}")
 
         console.print("\n[blue]Next steps:[/blue]")
-        console.print("  1. Edit scaling-rules.yml to configure auto-scaling")
-        console.print("  2. Run 'tsm generate' to create Traefik config")
-        console.print("  3. Run 'tsm monitor' to start auto-scaling")
+        console.print("  1. Edit cert-config.yml to configure certificates")
+        console.print("  2. Run 'tsm generate-certs -c cert-config.yml' to generate certificates")
+        console.print("  3. Edit scaling-rules.yml to configure auto-scaling")
+        console.print("  4. Run 'tsm generate' to create Traefik config")
+        console.print("  5. Run 'tsm monitor' to start auto-scaling")
 
     except Exception as e:
         logger.error(f"Config initialization failed: {e}")
@@ -626,6 +632,12 @@ def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -
 
 @cli.command("generate-certs")
 @click.option(
+    "--config",
+    "-c",
+    type=click.Path(exists=True),
+    help="Path to certificate configuration YAML file",
+)
+@click.option(
     "--type",
     type=click.Choice(["all", "ca", "server", "client", "peer"]),
     default="all",
@@ -666,23 +678,46 @@ def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -
     help="Generate a bundle of certs for a specific use case (e.g., traefik)",
 )
 def generate_certs(
-    type, name, common_name, hosts, output_dir, cert_config_dir, profile, domain, bundle
-):
+    config: str | None,
+    type: str,
+    name: str | None,
+    common_name: str,
+    hosts: str,
+    output_dir: str,
+    cert_config_dir: str,
+    profile: str,
+    domain: str,
+    bundle: str | None,
+) -> None:
     """Generate CA or service certificates using cfssl/cfssljson (replaces gen-certs.sh)."""
-    from .certs import generate_certs_cli
+    from .certs import generate_certs_cli, generate_certs_from_config
 
-    generate_certs_cli(
-        type,
-        name,
-        common_name,
-        hosts,
-        output_dir,
-        cert_config_dir,
-        profile,
-        domain,
-        bundle,
-        console,
-    )
+    if config:
+        # Use YAML configuration file
+        cli_args = {
+            'type': type,
+            'name': name,
+            'common_name': common_name,
+            'hosts': hosts,
+            'profile': profile,
+            'domain': domain,
+            'bundle': bundle,
+        }
+        generate_certs_from_config(config, output_dir, cert_config_dir, console, cli_args)
+    else:
+        # Use legacy command-line arguments
+        generate_certs_cli(
+            type,
+            name,
+            common_name,
+            hosts,
+            output_dir,
+            cert_config_dir,
+            profile,
+            domain,
+            bundle,
+            console,
+        )
 
 
 @cli.command("copy-certs")
