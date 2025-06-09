@@ -1,128 +1,386 @@
-name: Build and Release
+name: TSM CI/CD Pipeline
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main, develop]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CACHE_VERSION: v1
+  PYTHON_VERSION: "3.10"
 
 jobs:
-  build:
+  lint-and-format:
+    name: Code Quality Checks
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        run: |
-          # Change to project directory if needed
-          if [ -n "$PROJECT_DIR" ]; then
-            cd "$PROJECT_DIR"
-          fi
-          uv python install
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Sync dependencies
-        run: |
-          # Change to project directory if needed
-          if [ -n "$PROJECT_DIR" ]; then
-            cd "$PROJECT_DIR"
-          fi
-          uv sync
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
 
-      - name: Run tests (optional)
+      - name: Cache UV dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ env.CACHE_VERSION }}-uv-lint-${{ runner.os }}-python${{ env.PYTHON_VERSION }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ env.CACHE_VERSION }}-uv-lint-${{ runner.os }}-python${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
         run: |
-          # Change to project directory if needed
-          if [ -n "$PROJECT_DIR" ]; then
-            cd "$PROJECT_DIR"
-          fi
-          if [ -d "tests" ] || ls test_*.py 1> /dev/null 2>&1 || grep -q "pytest\|test" pyproject.toml; then
-            uv run pytest || echo "Tests failed or no test runner found"
+          uv sync --group dev
+
+      - name: Check code formatting with Black
+        run: |
+          uv run black --check --diff src/ tests/
+
+      - name: Lint with Ruff
+        run: |
+          uv run ruff check src/ tests/
+
+      - name: Type check with MyPy
+        run: |
+          uv run mypy src/
+
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    needs: lint-and-format
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Cache UV dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ env.CACHE_VERSION }}-uv-test-${{ runner.os }}-python${{ matrix.python-version }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ env.CACHE_VERSION }}-uv-test-${{ runner.os }}-python${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          uv sync --group dev
+
+      - name: Display environment info
+        run: |
+          uv --version
+          uv run python --version
+          uv run python -c "import sys; print(f'Python executable: {sys.executable}')"
+          uv tree
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest --cov=src/tsm --cov-report=xml --cov-report=term-missing -v
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --group dev
+
+      - name: Start Docker daemon
+        run: |
+          sudo systemctl start docker
+          sudo usermod -aG docker $USER
+
+      - name: Run integration tests
+        run: |
+          # Run integration tests if they exist
+          if [ -d "tests/integration" ]; then
+            uv run pytest tests/integration/ -v --tb=short
           else
-            echo "No tests found, skipping..."
+            echo "No integration tests found, skipping..."
           fi
 
-      - name: Build wheel and sdist
+      - name: Test TSM CLI
         run: |
-          # Change to project directory if needed
-          if [ -n "$PROJECT_DIR" ]; then
-            cd "$PROJECT_DIR"
-          fi
-          uv build
-          echo "Build artifacts:"
-          ls -la dist/
+          # Test that the CLI can be invoked
+          uv run tsm --help
+          uv run python -m tsm.cli --version || echo "Version command not implemented yet"
 
-      - name: Prepare installer script
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
         run: |
-          # Get version from tag (remove 'v' prefix if present)
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
+          uv sync --group dev
 
-          # Get project name from pyproject.toml
-          PROJECT_NAME=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")
+      - name: Run safety check for vulnerabilities
+        run: |
+          uv add --group dev safety
+          uv run safety check --json --output safety-report.json || true
 
-          # Find the wheel file
-          WHEEL_NAME=$(ls dist/*.whl | head -1 | xargs basename)
+      - name: Run bandit security linter
+        run: |
+          uv add --group dev bandit
+          uv run bandit -r src/ -f json -o bandit-report.json || true
 
-          # Copy the install script template and substitute variables
-          cp scripts/install.sh.template install.sh
-
-          # Replace placeholders
-          sed -i "s/{{PROJECT_NAME}}/${PROJECT_NAME}/g" install.sh
-          sed -i "s/{{GITHUB_REPO}}/${GITHUB_REPOSITORY}/g" install.sh
-          sed -i "s/{{VERSION}}/${VERSION}/g" install.sh
-          sed -i "s/{{WHEEL_NAME}}/${WHEEL_NAME}/g" install.sh
-
-          chmod +x install.sh
-
-          echo "PROJECT_NAME=${PROJECT_NAME}" >> $GITHUB_ENV
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "WHEEL_NAME=${WHEEL_NAME}" >> $GITHUB_ENV
-
-      - name: Upload build artifacts
+      - name: Upload security reports
         uses: actions/upload-artifact@v4
         with:
-          name: dist-files
+          name: security-reports
           path: |
-            dist/
-            install.sh
+            safety-report.json
+            bandit-report.json
+          retention-days: 30
+        if: always()
+
+  build:
+    name: Build Standalone Binary
+    runs-on: ${{ matrix.os }}
+    needs: [test, security-scan]
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller --onefile --name tsm src/tsm/cli.py
+
+      - name: List dist directory
+        run: ls -la dist/
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsm-binary-${{ matrix.os }}
+          path: |
+            dist/tsm*
+            dist/tsm.exe
+          retention-days: 30
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/tsm
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
 
   release:
-    needs: build
+    name: Create Release
     runs-on: ubuntu-latest
+    needs: [test, build, docker-build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
+      id-token: write
+
     steps:
-      - name: Download artifacts
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Linux binary
         uses: actions/download-artifact@v4
         with:
-          name: dist-files
+          name: tsm-binary-ubuntu-latest
+          path: dist/linux/
 
-      - name: Create Release
+      - name: Download macOS binary
+        uses: actions/download-artifact@v4
+        with:
+          name: tsm-binary-macos-latest
+          path: dist/macos/
+
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: tsm-binary-windows-latest
+          path: dist/windows/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          previous_tag=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$previous_tag" ]; then
+            echo "## Changes since $previous_tag" > CHANGELOG.md
+            git log --pretty=format:"- %s (%h)" $previous_tag..HEAD >> CHANGELOG.md
+          else
+            echo "## Initial Release" > CHANGELOG.md
+            git log --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          fi
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/*
-            install.sh
-          generate_release_notes: true
-          body: |
-            ## Installation
+            dist/linux/tsm*
+            dist/macos/tsm*
+            dist/windows/tsm.exe
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
 
-            ### Quick Install (Recommended)
-            ```bash
-            curl -LsSf https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/install.sh | sh
-            ```
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tsm
+    permissions:
+      id-token: write
 
-            ### Alternative: Manual Install with uv
-            ```bash
-            uv tool install ${{ github.event.repository.name }}
-            ```
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tsm-package-${{ github.sha }}
+          path: dist/
 
-            ### Alternative: Install from wheel
-            ```bash
-            # Download the wheel and install with uv
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$(ls dist/*.whl | head -1 | xargs basename)
-            uv tool install ./$(ls *.whl | head -1)
-            ```
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Uncomment and configure trusted publishing at https://pypi.org/manage/account/publishing/
+        # or use API token with:
+        # with:
+        #   password: ${{ secrets.PYPI_API_TOKEN }}
