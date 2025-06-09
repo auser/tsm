@@ -35,8 +35,8 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/}
           VERSION=${VERSION#v}
 
-          # Get project name from pyproject.toml
-          PROJECT_NAME=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")
+          # Get project name from pyproject.toml using grep and sed
+          PROJECT_NAME=$(grep -m 1 '^name = ' pyproject.toml | sed 's/^name = "\(.*\)"$/\1/')
 
           # Find the wheel file
           WHEEL_NAME=$(ls dist/*.whl | head -1 | xargs basename)

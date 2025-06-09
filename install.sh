@@ -5,7 +5,7 @@ set -e
 
 # Configuration (will be replaced by CI)
 PROJECT_NAME="tsm"
-GITHUB_REPO="auser/tsm"
+GITHUB_REPO="${GITHUB_REPO:-auser/tsm}"
 VERSION="${VERSION:-}"
 WHEEL_NAME=""
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local}"
@@ -91,16 +91,22 @@ ensure_uv() {
 # Fetch latest version from GitHub
 fetch_latest_version() {
     local latest_version
+    local api_url="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+    
+    log "Fetching latest version from GitHub: $GITHUB_REPO"
+    
     if command -v curl >/dev/null 2>&1; then
-        latest_version=$(curl --proto '=https' --tlsv1.2 -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")')
+        latest_version=$(curl --proto '=https' --tlsv1.2 -fsSL "$api_url" 2>/dev/null | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
     elif command -v wget >/dev/null 2>&1; then
-        latest_version=$(wget --https-only --secure-protocol=TLSv1_2 -qO- "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")')
+        latest_version=$(wget --https-only --secure-protocol=TLSv1_2 -qO- "$api_url" 2>/dev/null | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
     else
         error "Neither curl nor wget is available"
     fi
     
     if [ -z "$latest_version" ]; then
-        error "Failed to fetch latest version from GitHub"
+        warn "Failed to fetch latest version from GitHub. Using default version."
+        echo "v0.1.0"  # Default version if fetch fails
+        return
     fi
     
     echo "$latest_version"
@@ -294,6 +300,7 @@ ENVIRONMENT VARIABLES:
     INSTALL_DIR    Installation directory (default: ~/.local)
     VERSION        Specific version to install (default: latest)
                   Can be specified with or without 'v' prefix (e.g., 'v0.1.0' or '0.1.0')
+    GITHUB_REPO    GitHub repository in format 'owner/repo' (default: auser/tsm)
 
 EXAMPLES:
     # Standard installation (latest version)
@@ -301,6 +308,9 @@ EXAMPLES:
     
     # Install specific version
     VERSION=0.1.0 curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh
+    
+    # Install from specific repository
+    GITHUB_REPO=your-org/your-repo curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh
     
     # Install without modifying shell config
     curl -LsSf https://github.com/$GITHUB_REPO/releases/latest/download/install.sh | sh -s -- --no-modify-path
