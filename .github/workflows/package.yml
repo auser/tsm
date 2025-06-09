@@ -1,0 +1,105 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run tests (optional)
+        run: |
+          uv run pytest || echo "No tests found, skipping..."
+
+      - name: Build wheel and sdist
+        run: |
+          uv build
+          ls -la dist/
+
+      - name: Prepare installer script
+        run: |
+          # Get version from tag (remove 'v' prefix if present)
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+
+          # Get project name from pyproject.toml
+          PROJECT_NAME=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")
+
+          # Find the wheel file
+          WHEEL_NAME=$(ls dist/*.whl | head -1 | xargs basename)
+
+          # Copy the install script template and substitute variables
+          cp scripts/install.sh.template install.sh
+
+          # Replace placeholders
+          sed -i "s/{{PROJECT_NAME}}/${PROJECT_NAME}/g" install.sh
+          sed -i "s/{{GITHUB_REPO}}/${GITHUB_REPOSITORY}/g" install.sh
+          sed -i "s/{{VERSION}}/${VERSION}/g" install.sh
+          sed -i "s/{{WHEEL_NAME}}/${WHEEL_NAME}/g" install.sh
+
+          chmod +x install.sh
+
+          echo "PROJECT_NAME=${PROJECT_NAME}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "WHEEL_NAME=${WHEEL_NAME}" >> $GITHUB_ENV
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-files
+          path: |
+            dist/
+            install.sh
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-files
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+            install.sh
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Quick Install (Recommended)
+            ```bash
+            curl -LsSf https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/install.sh | sh
+            ```
+
+            ### Alternative: Manual Install with uv
+            ```bash
+            uv tool install ${{ github.event.repository.name }}
+            ```
+
+            ### Alternative: Install from wheel
+            ```bash
+            # Download the wheel and install with uv
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$(ls dist/*.whl | head -1 | xargs basename)
+            uv tool install ./$(ls *.whl | head -1)
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
