@@ -23,6 +23,7 @@ services:
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.services.traefik-proxy.loadbalancer.server.port=443"
       - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=admin-secure"
 
   static:
     image: fp/static
@@ -34,6 +35,10 @@ services:
       - default
       - monitoring
       - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.static.rule=Host(`static.ddev`) || Host(`static.herringbank.com`)"
+      - "traefik.http.routers.static.middlewares=web-standard"
 
   # Prometheus for metrics collection
   prometheus:
@@ -64,6 +69,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.ddev`) || Host(`prometheus.herringbank.com`)"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      - "traefik.http.routers.prometheus.middlewares=monitoring-secure"
 
   # Grafana for visualization
   grafana:
@@ -87,6 +93,11 @@ services:
       - traefik
       - monitoring
       - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.ddev`) || Host(`grafana.herringbank.com`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.middlewares=monitoring-secure"
 
   # AlertManager for alerting
   # alertmanager:
