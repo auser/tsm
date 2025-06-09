@@ -5,4 +5,5 @@
 -s GITHUB_REPOSITORY=auser/tsm
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 --secret-file .env
+--secret-file .secrets
 --directory /workspace/

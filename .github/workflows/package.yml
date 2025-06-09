@@ -27,10 +27,29 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install UV
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-          enable-cache: true
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Debug workspace
+        run: |
+          pwd
+          ls -la
+          echo "Current directory: $(pwd)"
+          echo "Workspace: $GITHUB_WORKSPACE"
+          echo "Workspace contents:"
+          ls -la $GITHUB_WORKSPACE || true
+
+      - name: Generate initial lock file
+        run: |
+          # Install project in editable mode
+          uv pip install --system --project $GITHUB_WORKSPACE -e .
+
+          # Install dev dependencies
+          uv pip install --system --project $GITHUB_WORKSPACE black ruff mypy
+
+          # Generate lock file
+          uv pip freeze --project $GITHUB_WORKSPACE > uv.lock
 
       - name: Cache UV dependencies
         uses: actions/cache@v4
@@ -38,13 +57,17 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
-          key: ${{ env.CACHE_VERSION }}-uv-lint-${{ runner.os }}-python${{ env.PYTHON_VERSION }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
+          key: ${{ env.CACHE_VERSION }}-uv-lint-${{ runner.os }}-python${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
           restore-keys: |
             ${{ env.CACHE_VERSION }}-uv-lint-${{ runner.os }}-python${{ env.PYTHON_VERSION }}-
 
       - name: Install dependencies
         run: |
-          uv sync --group dev
+          # Install project in editable mode
+          uv pip install --system --project . -e .
+
+          # Install dev dependencies
+          uv pip install --system --project . black ruff mypy
 
       - name: Check code formatting with Black
         run: |
@@ -79,10 +102,26 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install UV
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-          enable-cache: true
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Create virtual environment
+        run: |
+          uv venv
+          source .venv/bin/activate
+
+      - name: Generate initial lock file
+        working-directory: ${{ github.workspace }}
+        run: |
+          # Install project in editable mode
+          uv pip install --system --project $GITHUB_WORKSPACE -e .
+
+          # Install dev dependencies
+          uv pip install --system --project $GITHUB_WORKSPACE pytest pytest-cov
+
+          # Generate lock file
+          uv pip freeze > uv.lock
 
       - name: Cache UV dependencies
         uses: actions/cache@v4
@@ -90,13 +129,18 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
-          key: ${{ env.CACHE_VERSION }}-uv-test-${{ runner.os }}-python${{ matrix.python-version }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
+          key: ${{ env.CACHE_VERSION }}-uv-test-${{ runner.os }}-python${{ matrix.python-version }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
           restore-keys: |
             ${{ env.CACHE_VERSION }}-uv-test-${{ runner.os }}-python${{ matrix.python-version }}-
 
       - name: Install dependencies
+        working-directory: ${{ github.workspace }}
         run: |
-          uv sync --group dev
+          # Install project in editable mode
+          uv pip install --system --project $GITHUB_WORKSPACE -e .
+
+          # Install dev dependencies
+          uv pip install --system --project $GITHUB_WORKSPACE pytest
 
       - name: Display environment info
         run: |
@@ -137,13 +181,20 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install UV
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: |
-          uv sync --group dev
+          # Install project in editable mode
+          uv pip install --system --project $GITHUB_WORKSPACE -e .
+
+          # Install dev dependencies
+          uv pip install --system --project $GITHUB_WORKSPACE pytest
+
+          # Generate lock file
+          uv pip freeze > uv.lock
 
       - name: Start Docker daemon
         run: |
@@ -180,22 +231,28 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install UV
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
+        working-directory: ${{ github.workspace }}
         run: |
-          uv sync --group dev
+          # Install project in editable mode
+          uv pip install --system --project $GITHUB_WORKSPACE -e .
+
+          # Install dev dependencies
+          uv pip install --system --project $GITHUB_WORKSPACE safety bandit
+
+          # Generate lock file
+          uv pip freeze > uv.lock
 
       - name: Run safety check for vulnerabilities
         run: |
-          uv add --group dev safety
           uv run safety check --json --output safety-report.json || true
 
       - name: Run bandit security linter
         run: |
-          uv add --group dev bandit
           uv run bandit -r src/ -f json -o bandit-report.json || true
 
       - name: Upload security reports
@@ -227,18 +284,26 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install UV
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-          enable-cache: true
-
-      - name: Install dependencies
         run: |
-          # Install project dependencies
-          uv pip install -e .
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-          # Install PyInstaller
-          uv pip install pyinstaller
+      - name: Create virtual environment
+        run: |
+          uv venv
+          source .venv/bin/activate
+
+      - name: Generate initial lock file
+        working-directory: ${{ github.workspace }}
+        run: |
+          # Install project in editable mode
+          uv pip install --system --project $GITHUB_WORKSPACE -e .
+
+          # Install dev dependencies
+          uv pip install --system --project $GITHUB_WORKSPACE pyinstaller
+
+          # Generate lock file
+          uv pip freeze > uv.lock
 
       - name: Build binary with PyInstaller
         run: |
@@ -314,59 +379,29 @@ jobs:
 
   release:
     name: Create Release
+    needs: build
     runs-on: ubuntu-latest
-    needs: [test, build]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-      id-token: write
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Download Linux binary
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: tsm-binary-ubuntu-latest
-          path: dist/linux/
+          path: artifacts
 
-      - name: Download macOS binary
-        uses: actions/download-artifact@v4
-        with:
-          name: tsm-binary-macos-latest
-          path: dist/macos/
-
-      - name: Download Windows binary
-        uses: actions/download-artifact@v4
-        with:
-          name: tsm-binary-windows-latest
-          path: dist/windows/
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          previous_tag=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$previous_tag" ]; then
-            echo "## Changes since $previous_tag" > CHANGELOG.md
-            git log --pretty=format:"- %s (%h)" $previous_tag..HEAD >> CHANGELOG.md
-          else
-            echo "## Initial Release" > CHANGELOG.md
-            git log --pretty=format:"- %s (%h)" >> CHANGELOG.md
-          fi
-
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/linux/tsm*
-            dist/macos/tsm*
-            dist/windows/tsm.exe
-          body_path: CHANGELOG.md
-          draft: false
-          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+            artifacts/tsm-binary-ubuntu-latest/tsm
+            artifacts/tsm-binary-macos-latest/tsm
+            artifacts/tsm-binary-windows-latest/tsm.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-pypi:
     name: Publish to PyPI
