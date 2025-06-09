@@ -656,8 +656,8 @@ def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -
 @click.option("--profile", default="server", help="cfssl profile to use (default: server)")
 @click.option(
     "--domain",
-    default=os.environ.get("DOMAIN", "herringbank.com"),
-    help="Domain for wildcard certs (default: herringbank.com)",
+    default=os.environ.get("DOMAIN", "example.com"),
+    help="Domain for wildcard certs (default: example.com)",
 )
 @click.option(
     "--bundle",

@@ -11,34 +11,38 @@ services:
   ### Utility Container for testing connections, etc. ###
   ### Also contains defaults that other services can easily utilize or extend. ###
   smtp4dev:
-  container_name: mailserver-smtp4dev
-  image: 063584108314.dkr.ecr.us-east-2.amazonaws.com/smtp4dev:latest
-  restart: unless-stopped
-  healthcheck:
-    test: nc -vz localhost 25
-    interval: 10s
-    timeout: 5s
-    retries: 3
-    start_period: 30s
-  ports:
-    - 5000:8080
-    - 25:25
-    - 143:143
-  volumes:
-    - smtp4dev-data:/smtp4dev
-  environment:
-    <<: *default_tz
-    #Specifies the server hostname. Used in auto-generated TLS certificate if enabled.
-    ServerOptions__HostName: mail.herringbank.com
-  deploy:
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.smtp4dev-router.middlewares=secure-headers
-      - traefik.http.routers.smtp4dev-router.rule=Host(`mail.ddev`) || Host(`mail.prod`)
-  networks:
-    inter_app:
-      aliases:
-        - mailserver
+    container_name: mailserver-smtp4dev
+    image: 063584108314.dkr.ecr.us-east-2.amazonaws.com/smtp4dev:latest
+    restart: unless-stopped
+    healthcheck:
+      test: nc -vz localhost 25
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    ports:
+      - 5000:8080
+      - 25:25
+      - 143:143
+    volumes:
+      - smtp4dev-data:/smtp4dev
+    environment:
+      <<: *default_tz
+      #Specifies the server hostname. Used in auto-generated TLS certificate if enabled.
+      ServerOptions__HostName: mail.herringbank.com
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.smtp4dev-router.middlewares=secure-headers
+        - traefik.http.routers.smtp4dev-router.rule=Host(`mail.ddev`) || Host(`mail.prod`)
+    networks:
+      inter_app:
+        aliases:
+          - mailserver
+
+networks:
+  inter_app:
+    driver: bridge
 
 volumes:
   smtp4dev-data:

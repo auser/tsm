@@ -239,18 +239,8 @@ def generate_bundle(bundle, output_dir, cert_config_dir, hosts, domain, common_n
             shutil.copy(asterisk_pem, asterisk_fp_pem)
         if asterisk_key.exists():
             shutil.copy(asterisk_key, asterisk_fp_key)
-        # wildcard_herringbank
-        generate_certs_func(
-            "server",
-            "wildcard_herringbank",
-            "wildcard_herringbank",
-            f"localhost,127.0.0.1,traefik,herringbank,{domain},*.{domain}",
-            str(traefik_dir),
-            cert_config_dir,
-            "server",
-            domain,
-            console,
-        )
+
+
         console.print("[green]✓ Traefik cert bundle generated in proxy/certs/traefik[green]")
 
 
@@ -380,17 +370,17 @@ def copy_prod_certs_if_present():
         ("/usr/local/certs/ca.pem", "proxy/certs/ca.pem"),
         ("/usr/local/certs/traefik-server.pem", "proxy/certs/traefik/traefik-server.pem"),
         ("/usr/local/certs/traefik-server-key.pem", "proxy/certs/traefik/traefik-server-key.pem"),
-        ("/usr/local/certs/traefik-server.pem", "proxy/certs/traefik/herringbank_com.pem"),
-        ("/usr/local/certs/traefik-server-key.pem", "proxy/certs/traefik/herringbank_com-key.pem"),
+        ("/usr/local/certs/traefik-server.pem", "proxy/certs/traefik/example_com.pem"),
+        ("/usr/local/certs/traefik-server-key.pem", "proxy/certs/traefik/example_com-key.pem"),
         ("/usr/local/certs/asterisk_fp_com.crt", "proxy/certs/traefik/asterisk_fp.pem"),
         ("/usr/local/certs/asterisk_fp_com.key", "proxy/certs/traefik/asterisk_fp-key.pem"),
         (
-            "/usr/local/certs/wildcard_herringbank_com.crt",
-            "proxy/certs/traefik/wildcard_herringbank_com.pem",
+            "/usr/local/certs/wildcard_example_com.crt",
+            "proxy/certs/traefik/wildcard_example_com.pem",
         ),
         (
-            "/usr/local/certs/wildcard_herringbank_com.key",
-            "proxy/certs/traefik/wildcard_herringbank_com-key.pem",
+            "/usr/local/certs/wildcard_example_com.key",
+            "proxy/certs/traefik/wildcard_example_com-key.pem",
         ),
     ]
     for src, dst in mappings:
