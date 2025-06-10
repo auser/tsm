@@ -57,7 +57,11 @@ jobs:
           name: ${{ matrix.binary_name }}
           path: |
             dist/tsm-${{ matrix.target_os }}-x86_64
+            dist/tsm-${{ matrix.target_os }}-x86_64-musl
             dist/tsm-${{ matrix.target_os }}-arm64
+            dist/tsm-${{ matrix.target_os }}-arm64-musl
+            dist/tsm-${{ matrix.target_os }}-aarch64
+            dist/tsm-${{ matrix.target_os }}-aarch64-musl
 
   create-release:
     name: Create Release
@@ -77,7 +81,11 @@ jobs:
         with:
           files: |
             artifacts/tsm-linux/tsm-linux-x86_64
+            artifacts/tsm-linux/tsm-linux-x86_64-musl
             artifacts/tsm-linux/tsm-linux-arm64
+            artifacts/tsm-linux/tsm-linux-arm64-musl
+            artifacts/tsm-linux/tsm-linux-aarch64
+            artifacts/tsm-linux/tsm-linux-aarch64-musl
             artifacts/tsm-darwin/tsm-darwin-x86_64
             artifacts/tsm-darwin/tsm-darwin-arm64
           generate_release_notes: true
