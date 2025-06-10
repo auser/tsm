@@ -10,8 +10,9 @@ from loguru import logger
 from .config import Config
 from .discovery import Service
 
-TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+TEMPLATE_DIR = Path(__file__).parent.parent.parent / "templates"
 
+print(TEMPLATE_DIR)
 
 class ConfigGenerator:
     """Generate Traefik configuration from discovered services."""

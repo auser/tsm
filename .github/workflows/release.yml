@@ -41,8 +41,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Install PyInstaller in the virtual environment
-          uv pip install pyinstaller
+          # Install Nuitka in the virtual environment
+          uv pip install nuitka
 
       - name: Build binaries
         env:
