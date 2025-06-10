@@ -8,17 +8,13 @@ on:
 jobs:
   build-and-release:
     name: Build and Release
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
         include:
           - os: ubuntu-latest
             binary_name: tsm-linux-amd64
-          - os: macos-latest
-            binary_name: tsm-macos-amd64
-          - os: windows-latest
-            binary_name: tsm-windows-amd64.exe
 
     steps:
       - name: Checkout code
@@ -34,15 +30,20 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      - name: Create virtual environment
+        run: |
+          uv venv
+          source .venv/bin/activate
+
       - name: Install dependencies
         run: |
-          uv pip install --system --project $GITHUB_WORKSPACE -e .
-          uv pip install --system --project $GITHUB_WORKSPACE pyinstaller
+          # Install PyInstaller in the virtual environment
+          uv pip install pyinstaller
 
       - name: Build binary
         run: |
-          chmod +x build_binary.sh
-          ./build_binary.sh
+          chmod +x scripts/build_binary.sh
+          ./scripts/build_binary.sh
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
@@ -68,8 +69,6 @@ jobs:
         with:
           files: |
             artifacts/tsm-linux-amd64/tsm
-            artifacts/tsm-macos-amd64/tsm
-            artifacts/tsm-windows-amd64.exe/tsm.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
