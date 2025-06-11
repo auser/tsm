@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
 
 a = Analysis(
     ['../main.py'],
@@ -16,6 +17,11 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+# Platform-specific settings
+console = True
+if sys.platform == 'win32':
+    console = False  # No console window for Windows
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -29,7 +35,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=console,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

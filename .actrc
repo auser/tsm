@@ -6,4 +6,4 @@
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 --secret-file .env
 --secret-file .secrets
---directory /workspace/
+--directory .
