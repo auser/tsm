@@ -5,7 +5,7 @@ set -e
 
 echo "Building TSM for all platforms..."
 
-# Ensure pip is available for PyOxidizer
+# Ensure pip is available
 if ! command -v pip &> /dev/null; then
     echo "pip not found. Installing pip..."
     if command -v uv &> /dev/null; then
@@ -22,6 +22,12 @@ if ! dpkg -l | grep -q libcrypt-dev; then
     sudo apt-get install -y libcrypt-dev
 fi
 
+# Install PyInstaller if not present
+if ! command -v pyinstaller &> /dev/null; then
+    echo "Installing PyInstaller..."
+    pip install pyinstaller
+fi
+
 # Generate requirements.txt from pyproject.toml
 echo "Generating requirements.txt..."
 if command -v uv &> /dev/null; then
@@ -36,60 +42,60 @@ else
     fi
 fi
 
-# Define targets
-TARGETS=(
-    "linux-amd64"
-    "linux-arm64"
-    "macos-amd64"
-    "macos-arm64"
-    "windows-amd64"
-    "windows-arm64"
-)
-
 # Create releases directory
 mkdir -p releases
 
-# Build each target
-for target in "${TARGETS[@]}"; do
-    echo "Building for $target..."
+# Function to build for a specific platform
+build_for_platform() {
+    local platform=$1
+    local arch=$2
+    local output_name="tsm-${platform}-${arch}"
     
-    # Build the target
-    case "$target" in
-        "linux-amd64")
-            pyoxidizer build --target-triple x86_64-unknown-linux-gnu
-            ;;
-        "linux-arm64")
-            pyoxidizer build --target-triple aarch64-unknown-linux-gnu
-            ;;
-        "macos-amd64")
-            pyoxidizer build --target-triple x86_64-apple-darwin
-            ;;
-        "macos-arm64")
-            pyoxidizer build --target-triple aarch64-apple-darwin
-            ;;
-        "windows-amd64")
-            pyoxidizer build --target-triple x86_64-pc-windows-msvc
-            ;;
-        "windows-arm64")
-            pyoxidizer build --target-triple aarch64-pc-windows-msvc
-            ;;
-        *)
-            echo "Unknown target: $target"
-            exit 1
-            ;;
-    esac
+    echo "Building for ${platform}-${arch}..."
     
-    # Find and copy the built binary
-    if [[ "$target" == *"windows"* ]]; then
-        # Windows executable
-        find build -name "tsm.exe" -type f -exec cp {} "releases/tsm-$target.exe" \;
-    else
-        # Unix executable
-        find build -name "tsm" -type f -executable -exec cp {} "releases/tsm-$target" \;
+    # Set PyInstaller options based on platform
+    local pyinstaller_opts="--onefile --clean"
+    if [[ "$platform" == "windows" ]]; then
+        pyinstaller_opts="$pyinstaller_opts --noconsole"
+        output_name="${output_name}.exe"
     fi
     
-    echo "✓ Built $target"
-done
+    # Build using PyInstaller
+    pyinstaller $pyinstaller_opts -n tsm main.py
+    
+    # Move the built binary to releases directory
+    if [[ "$platform" == "windows" ]]; then
+        mv "dist/tsm.exe" "releases/${output_name}"
+    else
+        mv "dist/tsm" "releases/${output_name}"
+    fi
+    
+    echo "✓ Built ${platform}-${arch}"
+}
 
-echo "All builds complete! Binaries are in the 'releases' directory."
+# Build for current platform
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # Linux
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+        build_for_platform "linux" "amd64"
+    elif [[ "$(uname -m)" == "aarch64" ]]; then
+        build_for_platform "linux" "arm64"
+    fi
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+        build_for_platform "macos" "amd64"
+    elif [[ "$(uname -m)" == "arm64" ]]; then
+        build_for_platform "macos" "arm64"
+    fi
+elif [[ "$OSTYPE" == "msys"* ]] || [[ "$OSTYPE" == "win32" ]]; then
+    # Windows
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+        build_for_platform "windows" "amd64"
+    elif [[ "$(uname -m)" == "aarch64" ]]; then
+        build_for_platform "windows" "arm64"
+    fi
+fi
+
+echo "Build complete! Binaries are in the 'releases' directory."
 ls -la releases/

@@ -21,7 +21,7 @@ ENV PATH=$PATH:/usr/local/go/bin
 
 # Update, install base packages and tools
 RUN sudo apt-get update \
-    && sudo apt-get -y install git gcc zip unzip apt-transport-https \
+    && sudo apt-get -y install git gcc zip curl unzip apt-transport-https \
     ca-certificates golang-cfssl \
     traceroute net-tools curl dnsutils \
     gnupg-agent \
@@ -45,6 +45,9 @@ RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master
     git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-completions && \
     sudo chsh -s /bin/zsh $USERNAME
 
+
+# Install act
+RUN curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 

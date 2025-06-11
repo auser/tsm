@@ -1,4 +1,4 @@
-name: Cross-Platform Build with PyOxidizer
+name: Cross-Platform Build with PyInstaller
 
 on:
   push:
@@ -14,70 +14,124 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux-amd64
-            rust_target: x86_64-unknown-linux-gnu
             binary_name: tsm
             asset_name: tsm-linux-amd64
+            use_docker: false
           - os: ubuntu-latest
             target: linux-arm64
-            rust_target: aarch64-unknown-linux-gnu
             binary_name: tsm
             asset_name: tsm-linux-arm64
+            use_docker: true
+            docker_platform: linux/arm64
           - os: macos-latest
             target: macos-amd64
-            rust_target: x86_64-apple-darwin
             binary_name: tsm
             asset_name: tsm-macos-amd64
+            use_docker: false
           - os: macos-latest
             target: macos-arm64
-            rust_target: aarch64-apple-darwin
             binary_name: tsm
             asset_name: tsm-macos-arm64
+            use_docker: false
           - os: windows-latest
             target: windows-amd64
-            rust_target: x86_64-pc-windows-msvc
             binary_name: tsm.exe
             asset_name: tsm-windows-amd64.exe
+            use_docker: false
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.rust_target }}
-          override: true
-
-      - name: Install PyOxidizer
+      - name: Install dependencies
+        if: ${{ !matrix.use_docker }}
         run: |
           python -m pip install --upgrade pip
-          pip install pyoxidizer
-
-      - name: Build binary
-        run: |
-          pyoxidizer build --target-triple ${{ matrix.rust_target }}
-        env:
-          RUST_BACKTRACE: 1
-
-      - name: Find and copy binary
-        shell: bash
-        run: |
-          # Find the built binary and copy it
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            find build -name "${{ matrix.binary_name }}" -type f -exec cp {} ./${{ matrix.asset_name }} \;
-          else
-            find build -name "${{ matrix.binary_name }}" -type f -executable -exec cp {} ./${{ matrix.asset_name }} \;
+          pip install pyinstaller
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
           fi
 
-          # Verify the binary exists
+      - name: Build binary (Native)
+        if: ${{ !matrix.use_docker }}
+        run: |
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            pyinstaller --onefile --clean --noconsole -n tsm main.py
+          else
+            pyinstaller --onefile --clean -n tsm main.py
+          fi
+
+      - name: Set up Docker Buildx
+        if: ${{ matrix.use_docker }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build binary (Docker)
+        if: ${{ matrix.use_docker }}
+        run: |
+          # Create a temporary Dockerfile for building
+          cat > Dockerfile << 'EOF'
+          FROM python:3.11-slim
+
+          WORKDIR /build
+
+          # Copy the entire repository
+          COPY . .
+
+          # Debug: List all files and directories
+          RUN echo "=== Directory Structure ===" && \
+              find . -type f -o -type d | sort && \
+              echo "=== Contents of main.py ===" && \
+              cat main.py && \
+              echo "=== End of main.py ==="
+
+          # Install system dependencies required for PyInstaller
+          RUN apt-get update && \
+              apt-get install -y --no-install-recommends \
+              binutils \
+              build-essential \
+              && rm -rf /var/lib/apt/lists/*
+
+          # Install Python dependencies
+          RUN pip install --upgrade pip && \
+              pip install pyinstaller && \
+              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+          # Build the binary
+          RUN pyinstaller --onefile --clean -n tsm main.py
+
+          # The output will be in /build/dist/tsm
+          EOF
+
+          # Build using Docker Buildx with proper context
+          docker buildx build \
+            --platform ${{ matrix.docker_platform }} \
+            --output type=local,dest=./dist \
+            --build-context . \
+            -f Dockerfile .
+
+      - name: Copy and verify binary
+        shell: bash
+        run: |
+          # Copy the built binary
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            cp dist/${{ matrix.binary_name }} ./${{ matrix.asset_name }}
+          else
+            cp dist/${{ matrix.binary_name }} ./${{ matrix.asset_name }}
+          fi
+
+          # Verify the binary exists and show its architecture
           ls -la ${{ matrix.asset_name }}
+          if [[ "${{ matrix.target }}" != *"windows"* ]]; then
+            file ${{ matrix.asset_name }}
+          fi
 
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v3

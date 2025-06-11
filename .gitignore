@@ -16,3 +16,5 @@ logs/
 .secrets
 tests/docker-compose.fleet-forge.yml
 releases/
+bin/act
+tsm.spec
