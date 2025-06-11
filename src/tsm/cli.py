@@ -212,49 +212,49 @@ def discover(ctx: click.Context, compose_file: str) -> None:
     console.print(table)
 
 
-@cli.command()
-@click.argument("service_name")
-@click.argument("replicas", type=int)
-@click.option(
-    "--compose-file", "-f", default="docker-compose.yaml", help="Docker Compose file path"
-)
-@click.option("--update-config", is_flag=True, help="Update Traefik config after scaling")
-@click.pass_context
-def scale(
-    ctx: click.Context,
-    service_name: str,
-    replicas: int,
-    compose_file: str,
-    update_config: bool,
-) -> None:
-    """Scale a service to the specified number of replicas."""
+# @cli.command()
+# @click.argument("service_name")
+# @click.argument("replicas", type=int)
+# @click.option(
+#     "--compose-file", "-f", default="docker-compose.yaml", help="Docker Compose file path"
+# )
+# @click.option("--update-config", is_flag=True, help="Update Traefik config after scaling")
+# @click.pass_context
+# def scale(
+#     ctx: click.Context,
+#     service_name: str,
+#     replicas: int,
+#     compose_file: str,
+#     update_config: bool,
+# ) -> None:
+#     """Scale a service to the specified number of replicas."""
 
-    if replicas < 0:
-        console.print("[red]Error: Replicas must be >= 0[/red]")
-        sys.exit(1)
+#     if replicas < 0:
+#         console.print("[red]Error: Replicas must be >= 0[/red]")
+#         sys.exit(1)
 
-    docker_manager = DockerManager()
-    compose_path = Path(compose_file)
+#     docker_manager = DockerManager()
+#     compose_path = Path(compose_file)
 
-    try:
-        console.print(f"[blue]Scaling {service_name} to {replicas} replicas...[/blue]")
+#     try:
+#         console.print(f"[blue]Scaling {service_name} to {replicas} replicas...[/blue]")
 
-        if docker_manager.is_swarm_mode():
-            docker_manager.scale_swarm_service(service_name, replicas)
-        else:
-            docker_manager.scale_compose_service(service_name, replicas, compose_path)
+#         if docker_manager.is_swarm_mode():
+#             docker_manager.scale_swarm_service(service_name, replicas)
+#         else:
+#             docker_manager.scale_compose_service(service_name, replicas, compose_path)
 
-        console.print(f"[green]✓ Successfully scaled {service_name} to {replicas} replicas[/green]")
+#         console.print(f"[green]✓ Successfully scaled {service_name} to {replicas} replicas[/green]")
 
-        if update_config:
-            console.print("[blue]Updating Traefik configuration...[/blue]")
-            # Trigger config regeneration
-            ctx.invoke(generate, compose_file=compose_file)
+#         if update_config:
+#             console.print("[blue]Updating Traefik configuration...[/blue]")
+#             # Trigger config regeneration
+#             ctx.invoke(generate, compose_file=compose_file)
 
-    except Exception as e:
-        logger.error(f"Scaling failed: {e}")
-        console.print(f"[red]Error: {e}[/red]")
-        sys.exit(1)
+#     except Exception as e:
+#         logger.error(f"Scaling failed: {e}")
+#         console.print(f"[red]Error: {e}[/red]")
+#         sys.exit(1)
 
 
 @cli.command()

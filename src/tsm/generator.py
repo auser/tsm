@@ -425,28 +425,30 @@ class ConfigGenerator:
         output_dir.mkdir(parents=True, exist_ok=True)
         config_dir = output_dir / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
-        static_config_dir = config_dir / "static"
-        static_config_dir.mkdir(parents=True, exist_ok=True)
-        dynamic_config_dir = config_dir / "dynamic"
-        dynamic_config_dir.mkdir(parents=True, exist_ok=True)
+        
+        traefik_config_dir = config_dir / "traefik"
+        traefik_config_dir.mkdir(parents=True, exist_ok=True)
+
+        traefik_dynamic_config_dir = traefik_config_dir / "dynamic"
+        traefik_dynamic_config_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate and write Traefik config
         traefik_config = self.generate_traefik_config(services)
-        config_file = dynamic_config_dir / "config.yml"
+        config_file = traefik_config_dir / "config.yml"
         with open(config_file, "w") as f:
             self.write_yaml(traefik_config, f)
         written_files.append(config_file)
 
         # Generate and write middleware config
         middleware_config = self.generate_middleware_config()
-        middleware_file = dynamic_config_dir / "middleware.yml"
+        middleware_file = traefik_dynamic_config_dir / "middleware.yml"
         with open(middleware_file, "w") as f:
             self.write_yaml(middleware_config, f)
         written_files.append(middleware_file)
 
         # Generate and write static config
         static_config = self.generate_static_config()
-        static_file = static_config_dir / "traefik.yml"
+        static_file = traefik_config_dir / "traefik.yml"
         with open(static_file, "w") as f:
             self.write_yaml(static_config, f)
         written_files.append(static_file)
@@ -458,10 +460,10 @@ class ConfigGenerator:
         written_files.append(compose_file)
 
         # Write scaling rules
-        scaling_file = output_dir / "scaling-rules.yml"
-        with open(scaling_file, "w") as f:
-            f.write(self.generate_scaling_rules_file())
-        written_files.append(scaling_file)
+        # scaling_file = output_dir / "scaling-rules.yml"
+        # with open(scaling_file, "w") as f:
+        #     f.write(self.generate_scaling_rules_file())
+        # written_files.append(scaling_file)
 
         # Copy Dockerfiles
         self.copy_dockerfiles_to_output(output_dir)

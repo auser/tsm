@@ -14,8 +14,7 @@ services:
       - monitoring
       - default
     volumes:
-      - ./config/static:/etc/traefik
-      - ./config/dynamic:/opt/traefik/config/dynamic
+      - ./config/traefik/:/etc/traefik/
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"

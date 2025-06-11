@@ -5,6 +5,11 @@ set -e
 
 echo "Building TSM for all platforms..."
 
+if [ ! -f .venv ]; then
+    echo "Creating .venv directory..."
+    uv venv
+fi
+
 # Ensure pip is available
 if ! command -v pip &> /dev/null; then
     echo "pip not found. Installing pip..."
@@ -92,9 +97,10 @@ EOF
 
         # Build using Docker with increased verbosity and timeout
         echo "Starting Docker build for ${platform}-${arch}..."
+        mkdir -p dist
         if ! docker buildx build \
             --platform "$docker_platform" \
-            --output type=local,dest=/build/dist \
+            --output type=local,dest=./dist \
             --progress=plain \
             --no-cache \
             -f Dockerfile .; then
@@ -115,7 +121,7 @@ EOF
     fi
     
     # Move the built binary to releases directory
-    if [[ "$platform" == "windows" ]]; then
+    if [ "$platform" = "windows" ]; then
         output_name="${output_name}.exe"
         mv "dist/tsm.exe" "releases/${output_name}"
     else
@@ -136,18 +142,19 @@ echo "Verifying Docker Buildx setup..."
 docker buildx inspect
 
 # Define all target platforms
-TARGETS=(
-    "linux-amd64:false:linux/amd64"
-    "linux-arm64:true:linux/arm64"
-    "macos-amd64:false:linux/amd64"
-    "macos-arm64:false:linux/amd64"
-    "windows-amd64:false:linux/amd64"
-)
+TARGETS="linux-amd64:false:linux/amd64
+linux-arm64:true:linux/arm64
+macos-amd64:false:linux/amd64
+macos-arm64:false:linux/amd64
+windows-amd64:false:linux/amd64"
 
 # Build for all platforms
-for target in "${TARGETS[@]}"; do
-    IFS=':' read -r platform_arch use_docker docker_platform <<< "$target"
-    IFS='-' read -r platform arch <<< "$platform_arch"
+for target in $TARGETS; do
+    platform_arch=$(echo "$target" | cut -d':' -f1)
+    use_docker=$(echo "$target" | cut -d':' -f2)
+    docker_platform=$(echo "$target" | cut -d':' -f3)
+    platform=$(echo "$platform_arch" | cut -d'-' -f1)
+    arch=$(echo "$platform_arch" | cut -d'-' -f2)
     build_for_platform "$platform" "$arch" "$use_docker" "$docker_platform"
 done
 
