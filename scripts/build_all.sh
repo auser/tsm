@@ -5,19 +5,23 @@ set -e
 
 echo "Building TSM for all platforms..."
 
+# Create virtual environment using standard Python tools if uv is not available
 if [ ! -f .venv ]; then
     echo "Creating .venv directory..."
-    uv venv
+    if command -v uv &> /dev/null; then
+        uv venv
+    else
+        python -m venv .venv
+    fi
 fi
+
+# Activate virtual environment
+source .venv/bin/activate
 
 # Ensure pip is available
 if ! command -v pip &> /dev/null; then
     echo "pip not found. Installing pip..."
-    if command -v uv &> /dev/null; then
-        uv pip install pip
-    else
-        python -m ensurepip --upgrade
-    fi
+    python -m ensurepip --upgrade
 fi
 
 # Install required dependencies
@@ -46,6 +50,10 @@ else
         exit 1
     fi
 fi
+
+# Install requirements
+echo "Installing requirements..."
+pip install -r requirements.txt
 
 # Create releases directory
 mkdir -p releases
