@@ -15,3 +15,4 @@ logs/
 
 .secrets
 tests/docker-compose.fleet-forge.yml
+releases/

@@ -26,6 +26,7 @@ RUN sudo apt-get update \
     traceroute net-tools curl dnsutils \
     gnupg-agent \
     software-properties-common \
+    gcc-aarch64-linux-gnu \
     #
     # Install go
     && sudo curl -OJ https://dl.google.com/go/$GO_DIST \
