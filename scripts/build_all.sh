@@ -94,7 +94,7 @@ EOF
         echo "Starting Docker build for ${platform}-${arch}..."
         if ! docker buildx build \
             --platform "$docker_platform" \
-            --output type=local,dest=./dist \
+            --output type=local,dest=/build/dist \
             --progress=plain \
             --no-cache \
             -f Dockerfile .; then
