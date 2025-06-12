@@ -28,7 +28,7 @@ RUN cd /build && \
 
 # Debug: Show build output
 RUN echo "=== Build Output ===" && \
-    ls -la dist/ && \
+    ls -la /build/dist/ && \
     echo "=== End Build Output ==="
 
 # Clean up any generated spec files

@@ -100,19 +100,22 @@ RUN cd /build && \
 
 # Debug: Show build output
 RUN echo "=== Build Output ===" && \
-    ls -la dist/ && \
+    ls -la /build/dist/ && \
     echo "=== End Build Output ==="
 
 # Clean up any generated spec files
 RUN rm -f tsm.spec
 EOF
 
-        # Build using Docker with increased verbosity and timeout
+        # Create a temporary container name
+        local container_name="tsm_build_${platform}_${arch}"
+
+        # Build using Docker with increased verbosity
         echo "Starting Docker build for ${platform}-${arch}..."
-        mkdir -p dist
         if ! docker buildx build \
             --platform "$docker_platform" \
-            --output type=local,dest=./dist \
+            --load \
+            -t "$container_name" \
             --progress=plain \
             --no-cache \
             -f Dockerfile .; then
@@ -122,8 +125,20 @@ EOF
             exit 1
         fi
 
+        # Create a temporary container and copy the built binary
+        echo "Copying built binary from container..."
+        docker create --name "${container_name}_temp" "$container_name"
+        docker cp "${container_name}_temp:/build/dist/tsm" "dist/tsm"
+        docker rm "${container_name}_temp"
+        docker rmi "$container_name"
+
         # Clean up Dockerfile
         rm Dockerfile
+
+        # Debug: Show contents of dist directory after Docker build
+        echo "=== Contents of dist directory after Docker build ==="
+        ls -la dist/
+        echo "=== End of dist directory contents ==="
     else
         # Build using PyInstaller with the spec file
         echo "Building with PyInstaller..."
