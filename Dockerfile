@@ -24,7 +24,12 @@ RUN pip install --upgrade pip && \
 
 # Build the binary using the spec file
 RUN cd /build && \
-    pyinstaller spec/tsm.spec
+    pyinstaller spec/tsm.spec --clean
+
+# Debug: Show build output
+RUN echo "=== Build Output ===" && \
+    ls -la dist/ && \
+    echo "=== End Build Output ==="
 
 # Clean up any generated spec files
 RUN rm -f tsm.spec

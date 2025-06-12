@@ -18,11 +18,10 @@ fi
 # Activate virtual environment
 source .venv/bin/activate
 
-# Ensure pip is available
-if ! command -v pip &> /dev/null; then
-    echo "pip not found. Installing pip..."
-    python -m ensurepip --upgrade
-fi
+# Ensure pip is available and up to date
+echo "Updating pip..."
+python -m ensurepip --upgrade
+python -m pip install --upgrade pip
 
 # Install required dependencies
 if ! dpkg -l | grep -q libcrypt-dev; then
@@ -34,7 +33,7 @@ fi
 # Install PyInstaller if not present
 if ! command -v pyinstaller &> /dev/null; then
     echo "Installing PyInstaller..."
-    pip install pyinstaller
+    python -m pip install pyinstaller
 fi
 
 # Generate requirements.txt from pyproject.toml
@@ -53,7 +52,7 @@ fi
 
 # Install requirements
 echo "Installing requirements..."
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 # Create releases directory
 mkdir -p releases
@@ -97,7 +96,12 @@ RUN pip install --upgrade pip && \
 
 # Build the binary using the spec file
 RUN cd /build && \
-    pyinstaller spec/tsm.spec
+    pyinstaller spec/tsm.spec --clean
+
+# Debug: Show build output
+RUN echo "=== Build Output ===" && \
+    ls -la dist/ && \
+    echo "=== End Build Output ==="
 
 # Clean up any generated spec files
 RUN rm -f tsm.spec
@@ -122,7 +126,13 @@ EOF
         rm Dockerfile
     else
         # Build using PyInstaller with the spec file
-        pyinstaller spec/tsm.spec
+        echo "Building with PyInstaller..."
+        pyinstaller spec/tsm.spec --clean
+        
+        # Debug: Show build output
+        echo "=== Build Output ==="
+        ls -la dist/
+        echo "=== End Build Output ==="
         
         # Clean up any generated spec files
         rm -f tsm.spec
@@ -131,9 +141,23 @@ EOF
     # Move the built binary to releases directory
     if [ "$platform" = "windows" ]; then
         output_name="${output_name}.exe"
-        mv "dist/tsm.exe" "releases/${output_name}"
+        if [ -f "dist/tsm.exe" ]; then
+            mv "dist/tsm.exe" "releases/${output_name}"
+        else
+            echo "Error: dist/tsm.exe not found"
+            echo "Contents of dist directory:"
+            ls -la dist/
+            exit 1
+        fi
     else
-        mv "dist/tsm" "releases/${output_name}"
+        if [ -f "dist/tsm" ]; then
+            mv "dist/tsm" "releases/${output_name}"
+        else
+            echo "Error: dist/tsm not found"
+            echo "Contents of dist directory:"
+            ls -la dist/
+            exit 1
+        fi
     fi
     
     echo "✓ Built ${platform}-${arch}"
