@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "redhat.vscode-yaml",
-    "be5invis.toml"
+    "be5invis.toml",
+    "zainchen.json"
   ]
 }

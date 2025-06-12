@@ -731,31 +731,14 @@ def copy_certs(from_dir, to_dir):
 @cli.command("install-deps")
 def install_deps():
     """Install required dependencies (docker, python3, uv, cfssl, cfssljson, then uv venv + uv sync)."""
-    required_bins = ["docker", "python3", "uv"]
-    missing = [b for b in required_bins if not shutil.which(b)]
-    if missing:
-        console.print(f"[red]Missing required tools: {', '.join(missing)}[/red]")
-        sys.exit(1)
-    # Check for cfssl and cfssljson
-    cfssl_missing = not shutil.which("cfssl")
-    cfssljson_missing = not shutil.which("cfssljson")
-    if cfssl_missing or cfssljson_missing:
-        if sys.platform == "darwin":
-            console.print(
-                "[yellow]cfssl or cfssljson not found. Installing with Homebrew...[/yellow]"
-            )
-            try:
-                subprocess.run(["brew", "install", "cfssl"], check=True)
-                console.print("[green]✓ cfssl and cfssljson installed via Homebrew[/green]")
-            except subprocess.CalledProcessError as e:
-                console.print(f"[red]Failed to install cfssl with Homebrew: {e}[/red]")
-                sys.exit(1)
-        else:
-            console.print(
-                "[red]cfssl and cfssljson are required. Please install them manually from https://github.com/cloudflare/cfssl/releases[/red]"
-            )
-            sys.exit(1)
-    console.print("[blue]Installing Python dependencies...[/blue]")
+    # console.print("[blue]Installing Python dependencies...[/blue]")
+    from .installer import install_docker, install_uv, install_git, install_cfssl_with_git, install_build_dependencies, install_golang
+    install_docker()
+    install_uv()
+    install_git()
+    install_golang()
+    install_build_dependencies()
+    install_cfssl_with_git()
     try:
         subprocess.run(["uv", "venv"], check=True)
         subprocess.run(["uv", "sync"], check=True)
@@ -763,6 +746,14 @@ def install_deps():
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Dependency installation failed: {e}[/red]")
         sys.exit(1)
+
+    def _install_cfssl_with_git():
+        """Install cfssl with git."""
+        subprocess.run(["git", "clone", "https://github.com/cloudflare/cfssl.git"], check=True)
+        subprocess.run(["cd", "cfssl"], check=True)
+        subprocess.run(["make"], check=True)
+        subprocess.run(["sudo", "mv", "cfssl", "cfssljson", "/usr/local/bin/"], check=True)
+        console.print("[green]✓ cfssl and cfssljson installed via git[/green]")
 
 
 @cli.command("generate-usersfile")
