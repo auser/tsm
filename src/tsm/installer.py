@@ -56,7 +56,7 @@ def install_golang():
     subprocess.run(["brew", "install", "go"], check=True)
     console.print("[green]✓ go installed via Homebrew[/green]")
   elif sys.platform == "linux":
-    subprocess.run(["curl", "-LsSf", "https://go.dev/dl/go1.24.4.linux-amd64.tar.gz"], check=True)
+    subprocess.run(["curl", "-LO", "https://go.dev/dl/go1.24.4.linux-amd64.tar.gz"], check=True)
     subprocess.run(["sudo", "tar", "-C", "/usr/local", "-xzf", "go1.24.4.linux-amd64.tar.gz"], check=True)
     subprocess.run(["sudo", "mv", "/usr/local/go", "/usr/local/go1.24.4"], check=True)
     subprocess.run(["sudo", "ln", "-s", "/usr/local/go1.24.4/bin/go", "/usr/local/bin/go"], check=True)
