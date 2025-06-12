@@ -1,9 +1,7 @@
 --bind
---env-file .env
 --container-architecture linux/amd64
--s GITHUB_REF=refs/tags/v0.1.0
 -s GITHUB_REPOSITORY=auser/tsm
--P ubuntu-latest=catthehacker/ubuntu:act-latest
 --secret-file .env
 --secret-file .secrets
---directory .
+--directory /workspace
+-P ubuntu-latest=quay.io/catthehacker/ubuntu:act-latest
