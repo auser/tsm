@@ -77,7 +77,6 @@ RUN chown traefik -R /etc/traefik && \
 
 # Add this after your existing COPY commands
 COPY --chown=$USERNAME:$USERNAME ./config/dynamic/ /etc/traefik/dynamic/
-COPY --chown=$USERNAME:$USERNAME ./config/static/ /etc/traefik/static/
 
 USER $USERNAME
 

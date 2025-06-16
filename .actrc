@@ -1,7 +1,5 @@
---bind
 --container-architecture linux/amd64
--s GITHUB_REPOSITORY=auser/tsm
+--directory /workspace
 --secret-file .env
 --secret-file .secrets
---directory /workspace
 -P ubuntu-latest=quay.io/catthehacker/ubuntu:act-latest

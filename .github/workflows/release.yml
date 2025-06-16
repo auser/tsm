@@ -11,15 +11,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Debug - List files
-        run: |
-          pwd
-          ls -la
-          cat Dockerfile
-          ls -la scripts/
-
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v4
         with:

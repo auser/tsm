@@ -192,8 +192,7 @@ docker buildx inspect
 TARGETS="linux-amd64:false:linux/amd64
 linux-arm64:true:linux/arm64
 macos-amd64:false:linux/amd64
-macos-arm64:false:linux/amd64
-windows-amd64:false:linux/amd64"
+macos-arm64:false:linux/amd64"
 
 # Build for all platforms
 for target in $TARGETS; do
