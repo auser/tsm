@@ -609,7 +609,7 @@ def generate_hosts(
 @click.option(
     "--context-dir",
     default=os.environ.get("CONTEXT_DIR"),
-    help="Docker build context directory (default: ./proxy)",
+    help="Docker build context directory (default: .)",
 )
 @click.option(
     "--no-cache",
@@ -784,7 +784,7 @@ def copy_certs(ctx: click.Context, from_dir: str, to_dir: str) -> None:
 @click.option("--username", '-u', required=True, help="Username for basic auth")
 @click.option("--password", '-p', required=True, help="Password for basic auth")
 @click.option(
-    "--output", '-o', default=os.environ.get("OUTPUT_DIR", "proxy/config/usersfile"), help="Output path for usersfile (e.g., proxy/config/usersfile)"
+    "--output", '-o', default=os.environ.get("OUTPUT_DIR", "./config/usersfile"), help="Output path for usersfile (e.g., ./config/usersfile)"
 )
 @click.pass_context
 def generate_usersfile_cmd(ctx: click.Context, username: str, password: str, output: str) -> None:
