@@ -58,8 +58,8 @@ certificates:
   # Example 5: Using existing certificate file
   - name: "cert5"
     type: "server"
-    source_file: "/path/to/existing/cert.pem"  # Path to existing certificate file
-    permissions:
-      mode: 0o600
-      owner: "traefik"
-      group: "traefik" 
+    # source_file: "/path/to/existing/cert.pem"  # Path to existing certificate file
+    # permissions:
+    #   mode: 0o600
+    #   owner: "traefik"
+    #   group: "traefik" 

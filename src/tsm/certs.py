@@ -513,14 +513,17 @@ def generate_certs_from_config(config_path: str, output_dir: str, cert_config_di
         config = yaml.safe_load(f)
 
     # Get values from config, CLI args, or environment variables
-    common_name = get_config_value(config.get("defaults", {}), "common_name", cli_args.get("common_name") if cli_args else None, "COMMON_NAME")
-    hosts = get_config_value(config.get("defaults", {}), "hosts", cli_args.get("hosts") if cli_args else None, "HOSTS")
-    domain = get_config_value(config.get("defaults", {}), "domain", cli_args.get("domain") if cli_args else None, "DOMAIN")
-    profile = get_config_value(config.get("defaults", {}), "profile", cli_args.get("profile") if cli_args else None, "PROFILE")
+    defaults = config.get("defaults", {})
+    common_name = get_config_value(defaults, "common_name", cli_args.get("common_name") if cli_args else None, "COMMON_NAME")
+    hosts = get_config_value(defaults, "hosts", cli_args.get("hosts") if cli_args else None, "HOSTS")
+    domain = get_config_value(defaults, "domain", cli_args.get("domain") if cli_args else None, "DOMAIN")
+    profile = get_config_value(defaults, "profile", cli_args.get("profile") if cli_args else None, "PROFILE")
+
+    # Merge defaults into ca_config
+    ca_config = {**defaults, **config.get("ca", {})}
 
     # Generate CA if configured
-    if config.get("ca", {}).get("generate", True):
-        ca_config = config["ca"]
+    if ca_config.get("generate", True):
         generate_certs(
             "ca",
             ca_config["name"],
@@ -528,7 +531,7 @@ def generate_certs_from_config(config_path: str, output_dir: str, cert_config_di
             ca_config["hosts"],
             output_dir,
             cert_config_dir,
-            profile,
+            ca_config.get("profile", profile),
             ca_config["domain"],
             console
         )
