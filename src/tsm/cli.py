@@ -610,7 +610,12 @@ def generate_hosts(
     default=os.environ.get("CONTEXT_DIR", "proxy"),
     help="Docker build context directory (default: ./proxy)",
 )
-def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -> None:
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    help="Do not use cache when building the image",
+)
+def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str, no_cache: bool) -> None:
     """Build all Dockerfiles in the dockerfiles directory with the specified build context."""
     from .certs import copy_prod_certs_if_present
 
@@ -636,8 +641,11 @@ def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -
                 )
                 import subprocess
 
+                command = ["docker", "build", "-f", str(dockerfile), "-t", image_tag, str(context_path)]
+                if no_cache:
+                    command.append("--no-cache")
                 result = subprocess.run(
-                    ["docker", "build", "-f", str(dockerfile), "-t", image_tag, str(context_path)],
+                    command,
                     capture_output=True,
                     text=True,
                 )
