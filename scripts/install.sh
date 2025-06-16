@@ -1,32 +1,82 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 
 set -e
 set -u
 
-me=$(basename "$0")
-REL_DIR=$0:P
-DIR="$( cd "$( dirname "$REL_DIR" )" && pwd )";
-cd "$DIR" 
-cd "../" # go to parent of parent, which is project root.
+# Default installation directory
+INSTALL_DIR="/usr/local/bin"
+BINARY_NAME="tsm"
+REPO="auser/tsm" 
 
-echo "🚢 Start of '$me' (see: '$DIR/$me')"
-echo "🚢 PWD: $PWD"
-
-`git fetch --prune --tags`
-function last_tag() {
-    local out=`git tag --sort=taggerdate | tail -1`
-    echo $out
+# Function to get the latest tag
+get_latest_tag() {
+    curl -s "https://api.github.com/repos/${REPO}/tags" | grep -m 1 '"name":' | sed 's/.*"name": "\(.*\)".*/\1/'
 }
-echo "🚢 🏷️  Last tag: $(last_tag)"
 
-# one liner from: https://stackoverflow.com/a/8653732
-NEXT_TAG=$(echo $(last_tag) | awk -F. -v OFS=. 'NF==1{print ++$NF}; NF>1{if(length($NF+1)>length($NF))$(NF-1)++; $NF=sprintf("%0*d", length($NF), ($NF+1)%(10^length($NF))); print}')
+# Function to get the appropriate binary name for the current system
+get_binary_name() {
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+    
+    case "$arch" in
+        "x86_64")
+            arch="amd64"
+            ;;
+        "aarch64"|"arm64")
+            arch="arm64"
+            ;;
+    esac
+    
+    echo "tsm-${os}-${arch}"
+}
 
-OUTPUT_OF_BUILD=`sh $DIR/build_all.sh` || exit $?
-echo "🚢  OUTPUT_OF_BUILD: $OUTPUT_OF_BUILD"
+# Parse command line arguments
+VERSION=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --version)
+            VERSION="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
-# `git tag $NEXT_TAG`
-echo "🚢 🏷️ 📡 Pushing tag: $(NEXT_TAG), but only tag, not commit."
-# `git push origin $NEXT_TAG`
+# If no version specified, use latest tag
+if [ -z "$VERSION" ]; then
+    VERSION=$(get_latest_tag)
+fi
 
-echo "🚢  End of install script ✅"
+# Get the appropriate binary name for this system
+BINARY_FILE=$(get_binary_name)
+
+# Create temporary directory
+TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
+
+# Download the binary
+echo "Downloading version ${VERSION}..."
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILE}"
+if ! curl -L -o "${TEMP_DIR}/${BINARY_FILE}" "$DOWNLOAD_URL"; then
+    echo "Failed to download binary"
+    exit 1
+fi
+
+# Make the binary executable
+chmod +x "${TEMP_DIR}/${BINARY_FILE}"
+
+# Create versioned directory if it doesn't exist
+VERSION_DIR="${INSTALL_DIR}/${BINARY_NAME}-${VERSION}"
+sudo mkdir -p "$VERSION_DIR"
+
+# Move binary to versioned directory
+sudo mv "${TEMP_DIR}/${BINARY_FILE}" "${VERSION_DIR}/${BINARY_NAME}"
+
+# Create or update symlink
+sudo ln -sf "${VERSION_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
+
+echo "Successfully installed ${BINARY_NAME} version ${VERSION}"
+echo "Binary is available at: ${INSTALL_DIR}/${BINARY_NAME}"

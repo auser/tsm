@@ -5,6 +5,13 @@ set -e
 
 echo "Building TSM for all platforms..."
 
+# Get the current version from git tag
+VERSION=$(git describe --tags --abbrev=0)
+if [ -z "$VERSION" ]; then
+    echo "Error: No git tag found. Please create a tag first."
+    exit 1
+fi
+
 # Create virtual environment using standard Python tools if uv is not available
 if [ ! -f .venv ]; then
     echo "Creating .venv directory..."
@@ -61,7 +68,7 @@ mkdir -p releases
 build_for_platform() {
     local platform=$1
     local arch=$2
-    local output_name="tsm-${platform}-${arch}"
+    local output_name="tsm-${platform}-${arch}-${VERSION}"
     local use_docker=$3
     local docker_platform=$4
     
