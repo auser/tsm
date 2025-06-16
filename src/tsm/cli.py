@@ -31,21 +31,37 @@ console = Console()
 load_dotenv()
 
 
+def resolve_path(ctx: click.Context, path: str | Path) -> Path:
+    """Resolve a path relative to the working directory."""
+    if isinstance(path, str):
+        path = Path(path)
+    if not path.is_absolute():
+        base_dir = ctx.obj.get("base_dir", Path.cwd())
+        path = base_dir / path
+    return path
+
+
 @click.group()
 @click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 @click.option("--quiet", "-q", is_flag=True, help="Enable quiet mode")
+@click.option("--directory", "-d", type=click.Path(exists=True, file_okay=False, dir_okay=True), 
+            default=os.environ.get("BASE_DIR", Path.cwd()),
+              help="Base directory for all file operations")
 @click.pass_context
-def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool) -> None:
+def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, directory: str | None) -> None:
     """Traefik Service Manager - Auto-scaling and service discovery for Docker microservices."""
 
     # Setup logging
     log_level = "DEBUG" if verbose else "WARNING" if quiet else "INFO"
     setup_logging(log_level)
 
-    # Load configuration
-    config_path = Path(config) if config else None
+    # Set base directory
     ctx.ensure_object(dict)
+    ctx.obj["base_dir"] = Path(directory) if directory else Path.cwd()
+
+    # Load configuration
+    config_path = resolve_path(ctx, config) if config else None
     ctx.obj["config"] = load_config(config_path)
 
     logger.info("TSM started", version="0.1.0", log_level=log_level)
@@ -109,8 +125,8 @@ def generate(
     """Generate Traefik configuration from Docker Compose file."""
 
     config: Config = ctx.obj["config"]
-    compose_path = Path(compose_file)
-    output_path = Path(output_dir)
+    compose_path = resolve_path(ctx, compose_file)
+    output_path = resolve_path(ctx, output_dir)
 
     if not compose_path.exists():
         console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
@@ -404,12 +420,17 @@ def status(service: str | None, detailed: bool, format: str) -> None:
 @click.option("--environment", "-e", default=os.environ.get("ENVIRONMENT", "development"), help="Environment")
 @click.option("--compose-file", "-f", default=os.environ.get("COMPOSE_FILE", "docker-compose.yml"), help="Docker Compose file path")
 @click.option("--default-backend-host", "-b", default=os.environ.get("DEFAULT_BACKEND_HOST"), help="Default backend host for HTTP services")
+@click.pass_context
 def init_config(
-    name: str, environment: str, compose_file: str, default_backend_host: str | None
+    ctx: click.Context,
+    name: str, 
+    environment: str, 
+    compose_file: str, 
+    default_backend_host: str | None
 ) -> None:
     """Initialize default configuration files."""
 
-    compose_path = Path(compose_file)
+    compose_path = resolve_path(ctx, compose_file)
     if not compose_path.exists():
         console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
         sys.exit(1)
@@ -421,7 +442,7 @@ def init_config(
         generator = ConfigGenerator(
             name=name, environment=environment, default_backend_host=default_backend_host
         )
-        base_dir = Path.cwd() / name
+        base_dir = resolve_path(ctx, name)
         created_files = generator.write_config_files(name=name, output_dir=base_dir, services=services)
 
         # Generate cert templates in cert-config
@@ -677,7 +698,9 @@ def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str) -
     default=None,
     help="Generate a bundle of certs for a specific use case (e.g., traefik)",
 )
+@click.pass_context
 def generate_certs(
+    ctx: click.Context,
     config: str | None,
     type: str,
     name: str | None,
@@ -694,6 +717,10 @@ def generate_certs(
 
     if config:
         # Use YAML configuration file
+        config_path = resolve_path(ctx, config)
+        output_path = resolve_path(ctx, output_dir)
+        cert_config_path = resolve_path(ctx, cert_config_dir)
+        
         cli_args = {
             'type': type,
             'name': name,
@@ -703,16 +730,19 @@ def generate_certs(
             'domain': domain,
             'bundle': bundle,
         }
-        generate_certs_from_config(config, output_dir, cert_config_dir, console, cli_args)
+        generate_certs_from_config(config_path, output_path, cert_config_path, console, cli_args)
     else:
         # Use legacy command-line arguments
+        output_path = resolve_path(ctx, output_dir)
+        cert_config_path = resolve_path(ctx, cert_config_dir)
+        
         generate_certs_cli(
             type,
             name,
             common_name,
             hosts,
-            output_dir,
-            cert_config_dir,
+            output_path,
+            cert_config_path,
             profile,
             domain,
             bundle,
@@ -723,37 +753,12 @@ def generate_certs(
 @cli.command("copy-certs")
 @click.option("--from-dir", required=True, help="Source directory for certs")
 @click.option("--to-dir", required=True, help="Destination directory for certs")
-def copy_certs(from_dir, to_dir):
+@click.pass_context
+def copy_certs(ctx: click.Context, from_dir: str, to_dir: str) -> None:
     """Copy certificates from one directory to another if they exist."""
-    copy_certs_func(from_dir, to_dir, console)
-
-
-@cli.command("install-deps")
-def install_deps():
-    """Install required dependencies (docker, python3, uv, cfssl, cfssljson, then uv venv + uv sync)."""
-    # console.print("[blue]Installing Python dependencies...[/blue]")
-    from .installer import install_docker, install_uv, install_git, install_cfssl_with_git, install_build_dependencies, install_golang
-    install_docker()
-    install_uv()
-    install_git()
-    install_golang()
-    install_build_dependencies()
-    install_cfssl_with_git()
-    try:
-        subprocess.run(["uv", "venv"], check=True)
-        subprocess.run(["uv", "sync"], check=True)
-        console.print("[green]✓ Dependencies installed[/green]")
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Dependency installation failed: {e}[/red]")
-        sys.exit(1)
-
-    def _install_cfssl_with_git():
-        """Install cfssl with git."""
-        subprocess.run(["git", "clone", "https://github.com/cloudflare/cfssl.git"], check=True)
-        subprocess.run(["cd", "cfssl"], check=True)
-        subprocess.run(["make"], check=True)
-        subprocess.run(["sudo", "mv", "cfssl", "cfssljson", "/usr/local/bin/"], check=True)
-        console.print("[green]✓ cfssl and cfssljson installed via git[/green]")
+    from_path = resolve_path(ctx, from_dir)
+    to_path = resolve_path(ctx, to_dir)
+    copy_certs_func(from_path, to_path, console)
 
 
 @cli.command("generate-usersfile")
@@ -762,22 +767,25 @@ def install_deps():
 @click.option(
     "--output", '-o', default=os.environ.get("OUTPUT_DIR", "proxy/config/usersfile"), help="Output path for usersfile (e.g., proxy/config/usersfile)"
 )
-def generate_usersfile_cmd(username, password, output):
+@click.pass_context
+def generate_usersfile_cmd(ctx: click.Context, username: str, password: str, output: str) -> None:
     """Generate an htpasswd usersfile using Docker (httpd:alpine)."""
     from .usersfile import generate_usersfile
 
     try:
-        generate_usersfile(username, password, output)
-        console.print(f"[green]✓ Usersfile written to {output}[/green]")
+        output_path = resolve_path(ctx, output)
+        generate_usersfile(username, password, output_path)
+        console.print(f"[green]✓ Usersfile written to {output_path}[/green]")
     except Exception as e:
         console.print(f"[red]Failed to generate usersfile: {e}[/red]")
 
 
 @cli.command()
 @click.option("--compose-file", "-f", default="docker-compose.yml", help="Docker Compose file path")
-def up(compose_file: str) -> None:
+@click.pass_context
+def up(ctx: click.Context, compose_file: str) -> None:
     """Launch all services defined in the Docker Compose file."""
-    compose_path = Path(compose_file)
+    compose_path = resolve_path(ctx, compose_file)
     if not compose_path.exists():
         console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
         sys.exit(1)
