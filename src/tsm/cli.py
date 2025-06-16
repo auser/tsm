@@ -641,9 +641,12 @@ def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str, n
                 )
                 import subprocess
 
-                command = ["docker", "build", "-f", str(dockerfile), "-t", image_tag, str(context_path)]
+                command = ["docker", "build", "-f", str(dockerfile)]
                 if no_cache:
                     command.append("--no-cache")
+                command.extend(["-t", image_tag, str(context_path)])
+
+                console.print(f"[blue]Running command: {command}[/blue]")
                 result = subprocess.run(
                     command,
                     capture_output=True,
