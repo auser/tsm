@@ -73,13 +73,14 @@ VOLUME      /logs
 EXPOSE      2379 2380 4001 7001
 
 RUN chown traefik -R /etc/traefik && \
-    mkdir -p /logs && chown traefik -R /logs
+    mkdir -p /logs && chown traefik -R /logs && \
+    mkdir -p /data && chown traefik -R /data && \
+    mkdir -p /etc/traefik/dynamic && chown traefik -R /etc/traefik/dynamic
 
 # Add this after your existing COPY commands
-COPY --chown=$USERNAME:$USERNAME ./config/dynamic/ /etc/traefik/dynamic/
+COPY --chown=$USERNAME:$USERNAME ./config/traefik/dynamic/ /etc/traefik/dynamic/
 
 USER $USERNAME
-
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["traefik"]

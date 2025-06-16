@@ -645,7 +645,7 @@ def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str,
                 )
                 import subprocess
 
-                command = ["docker", "build", "-f", str(dockerfile)]
+                command = ["docker", "buildx", "build", "-f", str(dockerfile)]
                 if no_cache:
                     command.append("--no-cache")
                 command.extend(["-t", image_tag, str(context_path)])
