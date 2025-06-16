@@ -30,7 +30,13 @@ def generate_certs(
 
     output_dir = Path(output_dir)
     cert_config_dir = Path(cert_config_dir)
+    
+    # Ensure the output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create certificate-specific directory
+    cert_dir = output_dir / name
+    cert_dir.mkdir(parents=True, exist_ok=True)
 
     # If source_file is provided, try to use it
     if source_file:
@@ -40,8 +46,8 @@ def generate_certs(
         # Construct paths for both .pem and .key files
         source_pem_path = source_path.parent / f"{base_name}.pem"
         source_key_path = source_path.parent / f"{base_name}.key"
-        target_path = output_dir / f"{name}.pem"
-        target_key_path = output_dir / f"{name}-key.pem"
+        target_path = cert_dir / f"{name}.pem"
+        target_key_path = cert_dir / f"{name}-key.pem"
 
         # Check if both cert and key exist
         if source_pem_path.exists() and source_key_path.exists():
@@ -79,8 +85,8 @@ def generate_certs(
             ca_csr.parent.mkdir(parents=True, exist_ok=True)
             with open(ca_csr, "w") as f:
                 f.write(ca_csr_content)
-        console.print(f"[blue]Generating CA in {output_dir}...[/blue]")
-        with (output_dir / "ca-csr.json").open("w") as f:
+        console.print(f"[blue]Generating CA in {cert_dir}...[/blue]")
+        with (cert_dir / "ca-csr.json").open("w") as f:
             f.write(ca_csr.read_text())
         p1 = subprocess.run(
             [cfssl, "gencert", "-initca", str(ca_csr)], capture_output=True, text=True
@@ -89,7 +95,7 @@ def generate_certs(
             console.print(f"[red]cfssl gencert failed: {p1.stderr}[/red]")
             sys.exit(1)
         p2 = subprocess.run(
-            [cfssljson, "-bare", str(output_dir / "ca")],
+            [cfssljson, "-bare", str(cert_dir / "ca")],
             input=p1.stdout,
             capture_output=True,
             text=True,
@@ -97,7 +103,13 @@ def generate_certs(
         if p2.returncode != 0:
             console.print(f"[red]cfssljson failed: {p2.stderr}[/red]")
             sys.exit(1)
-        console.print(f"[green]✓ CA generated in {output_dir}[/green]")
+        # Copy CA files to the root certs directory for other certs to use
+        ca_pem = cert_dir / "ca.pem"
+        ca_key = cert_dir / "ca-key.pem"
+        if ca_pem.exists() and ca_key.exists():
+            shutil.copy(ca_pem, output_dir / "ca.pem")
+            shutil.copy(ca_key, output_dir / "ca-key.pem")
+        console.print(f"[green]✓ CA generated in {cert_dir}[/green]")
         return
 
     # For service certs: create a CSR JSON from template
@@ -112,36 +124,28 @@ def generate_certs(
         csr_data = json.load(f)
     csr_data["CN"] = common_name
     csr_data["hosts"] = hosts_list
-    csr_path = output_dir / f"{name}-csr.json"
+    csr_path = cert_dir / f"{name}-csr.json"
     with csr_path.open("w") as f:
         json.dump(csr_data, f, indent=2)
 
-    ca_pem = output_dir / "ca.pem"
-    ca_key = output_dir / "ca-key.pem"
-    # Debug prints for CA search
-    logger.debug(f"generate_certs: output_dir={output_dir}")
-    logger.debug(f"generate_certs: ca_pem={ca_pem}, ca_key={ca_key}")
-    logger.debug(
-        f"generate_certs: searching for CA in {[str(output_dir), str(cert_config_dir), str(cert_config_dir.parent), str(Path(output_dir).parent)]}"
-    )
-    if not ca_pem.exists() or not ca_key.exists():
-        for search_dir in [
-            output_dir,
-            cert_config_dir,
-            cert_config_dir.parent,
-            Path(output_dir).parent,
-        ]:
-            src_pem = search_dir / "ca.pem"
-            src_key = search_dir / "ca-key.pem"
-            if src_pem.exists() and src_key.exists():
-                try:
-                    shutil.copy(src_pem, ca_pem)
-                    shutil.copy(src_key, ca_key)
-                    logger.debug(f"Copied CA from {src_pem} and {src_key} to {ca_pem} and {ca_key}")
-                except Exception as e:
-                    logger.debug(f"Failed to copy CA from {src_pem} or {src_key}: {e}")
-                break
-    if not ca_pem.exists() or not ca_key.exists():
+    # Look for CA files in both the root certs directory and the CA directory
+    ca_pem = None
+    ca_key = None
+    for search_dir in [
+        output_dir,
+        output_dir / "ca",
+        cert_config_dir,
+        cert_config_dir.parent,
+        Path(output_dir).parent,
+    ]:
+        src_pem = search_dir / "ca.pem"
+        src_key = search_dir / "ca-key.pem"
+        if src_pem.exists() and src_key.exists():
+            ca_pem = src_pem
+            ca_key = src_key
+            break
+
+    if not ca_pem or not ca_key:
         ca_config = cert_config_dir / "ca-config.json"
         if not ca_config.exists():
             console.print(f"[yellow]Missing {ca_config}, generating default template...[/yellow]")
@@ -157,7 +161,7 @@ def generate_certs(
         ca_config.parent.mkdir(parents=True, exist_ok=True)
         with open(ca_config, "w") as f:
             f.write(ca_config_content)
-    console.print(f"[blue]Generating {type} certificate for {name} in {output_dir}...[/blue]")
+    console.print(f"[blue]Generating {type} certificate for {name} in {cert_dir}...[/blue]")
     p1 = subprocess.run(
         [
             cfssl,
@@ -175,7 +179,7 @@ def generate_certs(
         console.print(f"[red]cfssl gencert failed: {p1.stderr}[/red]")
         sys.exit(1)
     p2 = subprocess.run(
-        [cfssljson, "-bare", str(output_dir / name)],
+        [cfssljson, "-bare", str(cert_dir / name)],
         input=p1.stdout,
         capture_output=True,
         text=True,
@@ -183,7 +187,7 @@ def generate_certs(
     if p2.returncode != 0:
         console.print(f"[red]cfssljson failed: {p2.stderr}[/red]")
         sys.exit(1)
-    console.print(f"[green]✓ {type} certificate for {name} generated in {output_dir}[/green]")
+    console.print(f"[green]✓ {type} certificate for {name} generated in {cert_dir}[/green]")
 
 
 def copy_certs(from_dir, to_dir, console):
