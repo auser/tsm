@@ -32,18 +32,34 @@ def generate_certs(
     cert_config_dir = Path(cert_config_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # If source_file is provided, copy it instead of generating new cert
+    # If source_file is provided, try to use it
     if source_file:
         source_path = Path(source_file)
-        if not source_path.exists():
-            console.print(f"[red]Source certificate file {source_file} does not exist[/red]")
-            sys.exit(1)
-        
-        # Copy the certificate file to the output directory
+        # Get the basename without extension
+        base_name = source_path.stem
+        # Construct paths for both .pem and .key files
+        source_pem_path = source_path.parent / f"{base_name}.pem"
+        source_key_path = source_path.parent / f"{base_name}.key"
         target_path = output_dir / f"{name}.pem"
-        shutil.copy(source_path, target_path)
-        console.print(f"[green]✓ Copied existing certificate from {source_file} to {target_path}[/green]")
-        return
+        target_key_path = output_dir / f"{name}-key.pem"
+
+        # Check if both cert and key exist
+        if source_pem_path.exists() and source_key_path.exists():
+            shutil.copy(source_pem_path, target_path)
+            shutil.copy(source_key_path, target_key_path)
+            console.print(f"[green]✓ Copied existing certificate and key from {base_name} to {target_path}[/green]")
+            return
+        # If only cert exists but no key
+        elif source_pem_path.exists():
+            shutil.copy(source_pem_path, target_path)
+            console.print(f"[yellow]Warning: Certificate exists but key file {source_key_path} not found. Generating new key...[/yellow]")
+        # If only key exists but no cert
+        elif source_key_path.exists():
+            shutil.copy(source_key_path, target_key_path)
+            console.print(f"[yellow]Warning: Key exists but certificate file {source_pem_path} not found. Generating new certificate...[/yellow]")
+        # If neither exists
+        else:
+            console.print(f"[yellow]Warning: Source files for {base_name} not found. Generating new certificate and key...[/yellow]")
 
     cfssl = shutil.which("cfssl")
     cfssljson = shutil.which("cfssljson")
