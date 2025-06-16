@@ -78,7 +78,7 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, dire
 @click.option(
     "--output-dir",
     "-o",
-    default=os.environ.get("OUTPUT_DIR", "config/dynamic"),
+    default=os.environ.get("OUTPUT_DIR", "config/traefik/dynamic"),
     help="Output directory for generated configs (env: OUTPUT_DIR)",
 )
 @click.option(
