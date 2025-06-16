@@ -671,6 +671,7 @@ def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str,
     "--config",
     "-c",
     type=click.Path(exists=True),
+    default=os.environ.get("CERT_CONFIG_FILE", "cert-config.yml"),
     help="Path to certificate configuration YAML file",
 )
 @click.option(
@@ -751,22 +752,9 @@ def generate_certs(
         }
         generate_certs_from_config(config_path, output_path, cert_config_path, console, cli_args)
     else:
-        # Use legacy command-line arguments
-        output_path = resolve_path(ctx, output_dir)
-        cert_config_path = resolve_path(ctx, cert_config_dir)
-        
-        generate_certs_cli(
-            type,
-            name,
-            common_name,
-            hosts,
-            output_path,
-            cert_config_path,
-            profile,
-            domain,
-            bundle,
-            console,
-        )
+        console.print(f"[red]No config file provided[/red]")
+        console.print(f"[red]Run 'tsm init-config' to create a default configuration[/red]")
+        sys.exit(1)
 
 
 @cli.command("copy-certs")
