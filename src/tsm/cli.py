@@ -698,7 +698,7 @@ def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str,
 )
 @click.option(
     "--cert-config-dir",
-    default=os.environ.get("CERT_CONFIG_DIR", "./proxy/cert-config"),
+    default=os.environ.get("CERT_CONFIG_DIR", "cert-config"),
     help="Directory containing ca-csr.json, ca-config.json, csr-template.json",
 )
 @click.option("--profile", default="server", help="cfssl profile to use (default: server)")
@@ -729,6 +729,10 @@ def generate_certs(
 ) -> None:
     """Generate CA or service certificates using cfssl/cfssljson (replaces gen-certs.sh)."""
     from .certs import generate_certs_cli, generate_certs_from_config
+
+    console.print(f"[blue]Generating certs with config: {config}[/blue]")
+    console.print(f"[blue]Generating certs with output_dir: {output_dir}[/blue]")
+    console.print(f"[blue]Generating certs with cert_config_dir: {cert_config_dir}[/blue]")
 
     if config:
         # Use YAML configuration file
