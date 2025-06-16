@@ -607,7 +607,7 @@ def generate_hosts(
 )
 @click.option(
     "--context-dir",
-    default=os.environ.get("CONTEXT_DIR", "proxy"),
+    default=os.environ.get("CONTEXT_DIR"),
     help="Docker build context directory (default: ./proxy)",
 )
 @click.option(
@@ -615,11 +615,14 @@ def generate_hosts(
     is_flag=True,
     help="Do not use cache when building the image",
 )
-def build_dockerfiles(dockerfiles_dir: str, tag_prefix: str, context_dir: str, no_cache: bool) -> None:
+@click.pass_context
+def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str, context_dir: Optional[str], no_cache: bool) -> None:
     """Build all Dockerfiles in the dockerfiles directory with the specified build context."""
     from .certs import copy_prod_certs_if_present
 
     # Copy production certs if present before building
+    if context_dir is None:
+        context_dir = ctx.obj["base_dir"]
     copy_prod_certs_if_present()
     dockerfiles_path = Path(dockerfiles_dir)
     context_path = Path(context_dir)
