@@ -693,8 +693,8 @@ def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str,
 )
 @click.option(
     "--output-dir",
-    default=os.environ.get("OUTPUT_DIR", "./proxy/certs"),
-    help="Base directory to write certs to (default: ./proxy/certs)",
+    default=os.environ.get("OUTPUT_DIR", "./certs"),
+    help="Base directory to write certs to (default: ./certs)",
 )
 @click.option(
     "--cert-config-dir",
