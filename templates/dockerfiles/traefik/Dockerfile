@@ -36,21 +36,21 @@ RUN apk add --no-cache libcap && \
 COPY --chown=$USERNAME:$USERNAME ./config/usersfile /etc/traefik/.htpasswd
 # RUN chown -R $USERNAME:$USERNAME /etc/traefik/*.* /etc/traefik/.htpasswd
 
-COPY --chown=$USERNAME:$USERNAME ./config/static/traefik.yml /etc/traefik/traefik.yaml
+COPY --chown=$USERNAME:$USERNAME ./config/traefik/traefik.yml /etc/traefik/traefik.yaml
 # COPY ./config/dynamic.yaml /etc/traefik/dynamic.yaml
 
 # Should we do it this way? 
 # Nope, but good enough for now
 
 # Server certificates
-COPY --chown=$USERNAME:$USERNAME ./certs/traefik/traefik-server.pem /etc/traefik/server.pem
-COPY --chown=$USERNAME:$USERNAME ./certs/traefik/traefik-server-key.pem /etc/traefik/server-key.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik-server/traefik-server.pem /etc/traefik/server.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/traefik-server/traefik-server-key.pem /etc/traefik/server-key.pem
 
-COPY --chown=$USERNAME:$USERNAME ./certs/traefik/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
-COPY --chown=$USERNAME:$USERNAME ./certs/traefik/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/asterisk_fp/asterisk_fp.pem /etc/traefik/asterisk_fp.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/asterisk_fp/asterisk_fp-key.pem /etc/traefik/asterisk_fp-key.pem
 
-COPY --chown=$USERNAME:$USERNAME ./certs/traefik/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
-COPY --chown=$USERNAME:$USERNAME ./certs/traefik/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/wildcard_herringbank/wildcard_herringbank.pem /etc/traefik/wildcard_herringbank.pem
+COPY --chown=$USERNAME:$USERNAME ./certs/wildcard_herringbank/wildcard_herringbank-key.pem /etc/traefik/wildcard_herringbank-key.pem
 
 # Client certificates
 # COPY ./certs/traefik/traefik-etcd-client.pem /etc/traefik/etcd-client.pem

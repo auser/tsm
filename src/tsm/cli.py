@@ -624,6 +624,7 @@ def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str,
     # Copy production certs if present before building
     if context_dir is None:
         context_dir = ctx.obj["base_dir"]
+
     copy_prod_certs_if_present()
     dockerfiles_path = Path(dockerfiles_dir)
     context_path = Path(context_dir)
