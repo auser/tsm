@@ -62,16 +62,4 @@ certificates:
     permissions:
       mode: 0o600
       owner: "traefik"
-      group: "traefik"
-
-# Certificate Bundles
-bundles:
-  # Example bundle
-  example:
-    - name: "bundle-cert1"
-      source: "cert1"
-      copy: true
-      permissions:
-        mode: 0o644
-        owner: "traefik"
-        group: "traefik" 
+      group: "traefik" 

@@ -582,38 +582,3 @@ def generate_certs_from_config(config_path: str, output_dir: str, cert_config_di
             console,
             source_file
         )
-
-    # Generate bundles
-    for bundle_name, bundle_certs in config.get("bundles", {}).items():
-        bundle_dir = Path(output_dir) / bundle_name
-        bundle_dir.mkdir(parents=True, exist_ok=True)
-        
-        for bundle_cert in bundle_certs:
-            source = bundle_cert["source"]
-            target_name = bundle_cert["name"]
-            copy = bundle_cert.get("copy", False)
-            
-            # Find source certificate
-            source_path = None
-            for cert in config.get("certificates", []):
-                if cert["name"] == source:
-                    source_path = Path(output_dir) / f"{source}.pem"
-                    break
-            
-            if not source_path or not source_path.exists():
-                console.print(f"[red]Source certificate {source} not found[/red]")
-                continue
-                
-            # Copy or symlink the certificate
-            target_path = bundle_dir / f"{target_name}.pem"
-            if copy:
-                shutil.copy(source_path, target_path)
-            else:
-                if target_path.exists():
-                    target_path.unlink()
-                target_path.symlink_to(source_path)
-            
-            # Set permissions if specified
-            permissions = bundle_cert.get("permissions")
-            if permissions:
-                set_file_permissions(target_path, permissions)
