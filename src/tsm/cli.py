@@ -29,7 +29,8 @@ from .utils import setup_logging
 
 console = Console()
 
-load_dotenv()
+print(f"CWD: {Path.cwd()}")
+load_dotenv(Path.cwd() / ".env")
 
 
 def resolve_path(ctx: click.Context, path: str | Path) -> Path:
