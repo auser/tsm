@@ -323,6 +323,28 @@ class DockerManager:
         except DockerException as e:
             self.logger.error(f"Failed to clean Docker networks: {e}")
 
+    def init_volumes(self) -> None:
+        """Initialize required volumes for Traefik configuration."""
+        required_volumes = [
+            "traefik_data",
+            "traefik_logs",
+            "traefik_dynamic",
+            "prometheus_data",
+            "grafana_data",
+            "alertmanager_data"
+        ]
+
+        for volume_name in required_volumes:
+            try:
+                self.client.volumes.get(volume_name)
+                self.logger.debug(f"Volume {volume_name} already exists")
+            except NotFound:
+                try:
+                    self.client.volumes.create(volume_name)
+                    self.logger.info(f"Created volume: {volume_name}")
+                except APIError as e:
+                    self.logger.warning(f"Failed to create volume {volume_name}: {e}")
+
     def _container_to_info(self, container) -> ContainerInfo:
         """Convert Docker container to ContainerInfo."""
         # Get service name from labels

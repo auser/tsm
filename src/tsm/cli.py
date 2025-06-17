@@ -29,7 +29,6 @@ from .utils import setup_logging
 
 console = Console()
 
-print(f"CWD: {Path.cwd()}")
 load_dotenv(Path.cwd() / ".env")
 
 
@@ -45,7 +44,7 @@ def resolve_path(ctx: click.Context, path: str | Path) -> Path:
 
 @click.group()
 @click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
-@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+@click.option("--verbose", "-v", is_flag=True, default=os.environ.get("VERBOSE", "false").lower() == "true", help="Enable verbose logging")
 @click.option("--quiet", "-q", is_flag=True, help="Enable quiet mode")
 @click.option("--directory", "-d", type=click.Path(exists=True, file_okay=False, dir_okay=True), 
             default=os.environ.get("BASE_DIR", Path.cwd()),
@@ -73,7 +72,7 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, dire
 @click.option(
     "--compose-file",
     "-f",
-    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"),
+    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"),
     help="Docker Compose file path (env: SERVICES_COMPOSE_FILE)",
 )
 @click.option(
@@ -192,7 +191,7 @@ def generate(
 
 @cli.command()
 @click.option(
-    "--compose-file", "-f", default="docker-compose.yaml", help="Docker Compose file path"
+    "--compose-file", "-f", default="docker-compose.yml", help="Docer Compose file path"
 )
 @click.pass_context
 def discover(ctx: click.Context, compose_file: str) -> None:
@@ -230,54 +229,12 @@ def discover(ctx: click.Context, compose_file: str) -> None:
     console.print(table)
 
 
-# @cli.command()
-# @click.argument("service_name")
-# @click.argument("replicas", type=int)
-# @click.option(
-#     "--compose-file", "-f", default="docker-compose.yaml", help="Docker Compose file path"
-# )
-# @click.option("--update-config", is_flag=True, help="Update Traefik config after scaling")
-# @click.pass_context
-# def scale(
-#     ctx: click.Context,
-#     service_name: str,
-#     replicas: int,
-#     compose_file: str,
-#     update_config: bool,
-# ) -> None:
-#     """Scale a service to the specified number of replicas."""
 
-#     if replicas < 0:
-#         console.print("[red]Error: Replicas must be >= 0[/red]")
-#         sys.exit(1)
-
-#     docker_manager = DockerManager()
-#     compose_path = Path(compose_file)
-
-#     try:
-#         console.print(f"[blue]Scaling {service_name} to {replicas} replicas...[/blue]")
-
-#         if docker_manager.is_swarm_mode():
-#             docker_manager.scale_swarm_service(service_name, replicas)
-#         else:
-#             docker_manager.scale_compose_service(service_name, replicas, compose_path)
-
-#         console.print(f"[green]✓ Successfully scaled {service_name} to {replicas} replicas[/green]")
-
-#         if update_config:
-#             console.print("[blue]Updating Traefik configuration...[/blue]")
-#             # Trigger config regeneration
-#             ctx.invoke(generate, compose_file=compose_file)
-
-#     except Exception as e:
-#         logger.error(f"Scaling failed: {e}")
-#         console.print(f"[red]Error: {e}[/red]")
-#         sys.exit(1)
 
 
 @cli.command()
 @click.option(
-    "--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"), help="Docker Compose file path"
+    "--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"), help="Docer Compose file path"
 )
 @click.option(
     "--scaling-config", "-r", default="scaling-rules.yml", help="Auto-scaling configuration file"
@@ -347,26 +304,39 @@ def monitor(
     default="table",
     help="Output format",
 )
-def status(service: str | None, detailed: bool, format: str) -> None:
+@click.pass_context
+def status(ctx: click.Context, service: str | None, detailed: bool, format: str) -> None:
     """Show service status."""
 
     docker_manager = DockerManager()
+    config: Config = ctx.obj["config"]
+    compose_path = resolve_path(ctx, config.compose_file)
+
+    if not compose_path.exists():
+        console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
+        sys.exit(1)
+
+    # Get services from compose file
+    discovery = ServiceDiscovery()
+    compose_services = {s.name for s in discovery.discover_services(compose_path)}
 
     try:
         if service:
             # Show specific service status
+            if service not in compose_services:
+                console.print(f"[red]Service '{service}' not found in compose file[/red]")
+                sys.exit(1)
+
             service_info = docker_manager.get_service_status(service)
             if not service_info:
-                console.print(f"[red]Service '{service}' not found[/red]")
+                console.print(f"[red]Service '{service}' is not running[/red]")
                 sys.exit(1)
 
             if format == "json":
                 import json
-
                 console.print(json.dumps(service_info.__dict__, indent=2, default=str))
             elif format == "yaml":
                 import yaml
-
                 console.print(yaml.dump(service_info.__dict__, default_flow_style=False))
             else:
                 # Table format
@@ -385,9 +355,7 @@ def status(service: str | None, detailed: bool, format: str) -> None:
 
                 console.print(table)
         else:
-            # Show all services
-            services = docker_manager.get_running_services()
-
+            # Show all services from compose file
             table = Table(title="Service Status")
             table.add_column("Service", style="cyan")
             table.add_column("Running", style="green")
@@ -395,7 +363,7 @@ def status(service: str | None, detailed: bool, format: str) -> None:
             table.add_column("Scaling", style="blue")
             table.add_column("Priority", style="magenta")
 
-            for service_name in services:
+            for service_name in compose_services:
                 service_info = docker_manager.get_service_status(service_name)
                 if service_info:
                     scaling = "✓" if service_info.scaling_enabled else "✗"
@@ -407,6 +375,15 @@ def status(service: str | None, detailed: bool, format: str) -> None:
                         service_info.health_status,
                         scaling,
                         priority,
+                    )
+                else:
+                    # Service is defined in compose but not running
+                    table.add_row(
+                        service_name,
+                        "0/0",
+                        "not running",
+                        "-",
+                        "-",
                     )
 
             console.print(table)
@@ -544,7 +521,7 @@ def version() -> None:
 @click.option(
     "--compose-file",
     "-f",
-    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"),
+    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"),
     help="Docker Compose file path (env: SERVICES_COMPOSE_FILE)",
 )
 @click.option(
@@ -652,7 +629,7 @@ def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str,
                     command.append("--no-cache")
                 command.extend(["-t", image_tag, str(context_path)])
 
-                console.print(f"[blue]Running command: {command}[/blue]")
+                logger.debug(f"[blue]Running command: {command}[/blue]")
                 result = subprocess.run(
                     command,
                     capture_output=True,
@@ -790,7 +767,7 @@ def generate_usersfile_cmd(ctx: click.Context, username: str, password: str, out
 
 
 @cli.command()
-@click.option("--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"), help="Docker Compose file path")
+@click.option("--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"), help="Docer Compose file path")
 @click.pass_context
 def up(ctx: click.Context, compose_file: str) -> None:
     """Launch all services defined in the Docker Compose file."""

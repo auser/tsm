@@ -128,7 +128,7 @@ class Config(BaseModel):
     docker: DockerConfig = Field(default_factory=DockerConfig)
 
     # File paths
-    compose_file: str = Field(default="docker-compose.yaml")
+    compose_file: str = Field(default="docker-compose.yml")
     scaling_config_file: str = Field(default="scaling-rules.yml")
     output_directory: str = Field(default="proxy/config/dynamic")
 
