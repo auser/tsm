@@ -10,6 +10,9 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && apt-get install -y sudo zsh git bash \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
+
+RUN mkdir -p /opt/configs && sudo chown $USERNAME:$USERNAME /opt/configs
+
 USER $USERNAME
 
 # Versions
@@ -69,5 +72,7 @@ COPY ./scripts/postCreate.sh /home/$USERNAME/.postCreate.sh
 
 RUN sudo chown $USERNAME:$USERNAME /home/$USERNAME/.zshrc
 RUN sudo chmod 644 /home/$USERNAME/.zshrc
+
+RUN sudo usermod -aG docker $USERNAME
 
 RUN sudo chsh -s /bin/zsh $USERNAME
