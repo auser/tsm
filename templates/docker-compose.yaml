@@ -14,15 +14,21 @@ services:
       - monitoring
       - default
     volumes:
-      - ./config/traefik/:/etc/traefik/
-      - /var/run/docker.sock:/var/run/docker.sock
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./config/traefik/dynamic
+        target: /etc/traefik/dynamic
+      - traefik_data:/data
+      - traefik_logs:/logs
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.ddev`) || Host(`traefik.herringbank.com`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.services.traefik-proxy.loadbalancer.server.port=443"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=admin-secure"
+      - "traefik.http.routers.traefik.middlewares=admin-secure@file"
 
   static:
     image: fp/static
@@ -37,7 +43,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.static.rule=Host(`static.ddev`) || Host(`static.herringbank.com`)"
-      - "traefik.http.routers.static.middlewares=web-standard"
+      - "traefik.http.routers.static.middlewares=web-standard@file"
 
   # Prometheus for metrics collection
   prometheus:
@@ -68,7 +74,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.ddev`) || Host(`prometheus.herringbank.com`)"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-      - "traefik.http.routers.prometheus.middlewares=monitoring-secure"
+      - "traefik.http.routers.prometheus.middlewares=monitoring-secure@file"
 
   # Grafana for visualization
   grafana:
@@ -96,7 +102,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.ddev`) || Host(`grafana.herringbank.com`)"
       - "traefik.http.services.grafana.loadbalancer.server.port=4000"
-      - "traefik.http.routers.grafana.middlewares=monitoring-secure"
+      - "traefik.http.routers.grafana.middlewares=monitoring-secure@file"
 
   # AlertManager for alerting
   # alertmanager:
@@ -169,6 +175,12 @@ volumes:
     name: grafana_data
   alertmanager_data:
     name: alertmanager_data
+  traefik_data:
+    name: traefik_data
+  traefik_logs:
+    name: traefik_logs
+  traefik_dynamic:
+    name: traefik_dynamic
 
 networks:
   traefik:

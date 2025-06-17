@@ -13,20 +13,9 @@ entryPoints:
     address: ":443"
 
 providers:
-  docker:
-    exposedByDefault: false
-    network: traefik
   file:
     directory: /opt/traefik/config/dynamic
     watch: true
-
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: admin@localhost
-      storage: /letsencrypt/acme.json
-      httpChallenge:
-        entryPoint: web
 
 metrics:
   prometheus:

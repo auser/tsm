@@ -73,8 +73,8 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, dire
 @click.option(
     "--compose-file",
     "-f",
-    default=os.environ.get("COMPOSE_FILE", "docker-compose.yaml"),
-    help="Docker Compose file path (env: COMPOSE_FILE)",
+    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"),
+    help="Docker Compose file path (env: SERVICES_COMPOSE_FILE)",
 )
 @click.option(
     "--output-dir",
@@ -277,7 +277,7 @@ def discover(ctx: click.Context, compose_file: str) -> None:
 
 @cli.command()
 @click.option(
-    "--compose-file", "-f", default="docker-compose.yaml", help="Docker Compose file path"
+    "--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"), help="Docker Compose file path"
 )
 @click.option(
     "--scaling-config", "-r", default="scaling-rules.yml", help="Auto-scaling configuration file"
@@ -544,8 +544,8 @@ def version() -> None:
 @click.option(
     "--compose-file",
     "-f",
-    default=os.environ.get("COMPOSE_FILE", "docker-compose.yaml"),
-    help="Docker Compose file path (env: COMPOSE_FILE)",
+    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"),
+    help="Docker Compose file path (env: SERVICES_COMPOSE_FILE)",
 )
 @click.option(
     "--ip",
@@ -790,7 +790,7 @@ def generate_usersfile_cmd(ctx: click.Context, username: str, password: str, out
 
 
 @cli.command()
-@click.option("--compose-file", "-f", default="docker-compose.yml", help="Docker Compose file path")
+@click.option("--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yaml"), help="Docker Compose file path")
 @click.pass_context
 def up(ctx: click.Context, compose_file: str) -> None:
     """Launch all services defined in the Docker Compose file."""

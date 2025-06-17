@@ -71,7 +71,7 @@ http:
       rateLimit:
         average: 200
         burst: 400
-        period: "1m"
+        period: "2m"
 
     # Basic Authentication
     auth:
@@ -92,7 +92,7 @@ http:
 
     # IP Whitelist for Admin Services
     admin-whitelist:
-      ipWhiteList:
+      IPAllowList:
         sourceRange:
           - "127.0.0.1/32"
           - "10.0.0.0/8"
