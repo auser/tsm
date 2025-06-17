@@ -1,6 +1,7 @@
 """Configuration management for TSM."""
 
 from typing import Any
+from pathlib import Path
 
 import yaml
 from loguru import logger
@@ -117,6 +118,7 @@ class Config(BaseModel):
     # Global settings
     environment: str = Field(default="development", pattern=r"^(development|staging|production)$")
     log_level: str = Field(default="INFO", pattern=r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    base_dir: Path = Field(default_factory=Path.cwd)
 
     # Component configurations
     global_scaling: GlobalScalingConfig = Field(default_factory=GlobalScalingConfig)
@@ -150,7 +152,8 @@ def load_config(path=None):
         # If the path ends with docker-compose.yml, treat it as a compose file
         if path.name == "docker-compose.yml":
             config = Config()
-            config.compose_file = str(path)
+            config.compose_file = str(path.absolute())
+            config.base_dir = path.parent.absolute()
             return config
             
         with open(path) as f:

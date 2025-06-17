@@ -2,7 +2,7 @@
 
 import shutil
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, Literal
 
 import yaml
 from loguru import logger
@@ -458,10 +458,10 @@ class ConfigGenerator:
         written_files.append(compose_file)
 
         # Write scaling rules
-        # scaling_file = output_dir / "scaling-rules.yml"
-        # with open(scaling_file, "w") as f:
-        #     f.write(self.generate_scaling_rules_file())
-        # written_files.append(scaling_file)
+        scaling_file = output_dir / "scaling-rules.yml"
+        with open(scaling_file, "w") as f:
+            f.write(self.generate_scaling_rules_file())
+        written_files.append(scaling_file)
 
         # Copy Dockerfiles
         self.copy_dockerfiles_to_output(output_dir)
@@ -628,3 +628,68 @@ class ConfigGenerator:
             self.logger.info(f"Created {csr_template}")
             created.append(csr_template)
         return created
+
+    def generate_templates(
+        self,
+        output_dir: Path,
+        template: Literal["all", "scaling", "certs", "monitoring", "dockerfiles"],
+        overwrite: bool = False,
+        compose_file: Path | None = None,
+    ) -> list[Path]:
+        """Generate configuration templates.
+
+        Args:
+            output_dir: Directory to write templates to
+            template: Which template to generate
+            overwrite: Whether to overwrite existing files
+            compose_file: Path to docker-compose file for service discovery
+
+        Returns:
+            List of created/updated file paths
+        """
+        output_dir.mkdir(parents=True, exist_ok=True)
+        created_files: list[Path] = []
+
+        if template in ["all", "scaling"]:
+            # Write scaling rules for all discovered services
+            scaling_file = output_dir / "scaling-rules.yml"
+            if overwrite or not scaling_file.exists():
+                from tsm.discovery import ServiceDiscovery
+                services = []
+                if compose_file and compose_file.exists():
+                    discovery = ServiceDiscovery()
+                    services = discovery.discover_services(compose_file)
+                scaling_rules = {"services": {}}
+                for service in services:
+                    scaling_rules["services"][service.name] = {
+                        "enabled": True,
+                        "min_replicas": 1,
+                        "max_replicas": 5,
+                        "target_cpu": 70.0,
+                        "target_memory": 80.0,
+                        "priority": "medium",
+                    }
+                import yaml
+                with open(scaling_file, "w") as f:
+                    yaml.dump(scaling_rules, f, default_flow_style=False)
+                created_files.append(scaling_file)
+
+        if template in ["all", "certs"]:
+            # Generate cert templates in cert-config
+            cert_config_dir = output_dir / "cert-config"
+            created_files.extend(self.generate_cert_templates(cert_config_dir, force=overwrite))
+            
+            # Copy certificate configuration template
+            cert_config = self.copy_cert_config_template(output_dir)
+            if overwrite or not cert_config.exists():
+                created_files.append(cert_config)
+
+        if template in ["all", "monitoring"]:
+            # Copy monitoring configs
+            self.copy_monitoring_config(output_dir)
+
+        if template in ["all", "dockerfiles"]:
+            # Copy Dockerfiles
+            self.copy_dockerfiles_to_output(output_dir)
+
+        return created_files

@@ -9,8 +9,9 @@ import os
 import shutil
 import subprocess
 import sys
+import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import click
 from dotenv import load_dotenv
@@ -31,42 +32,60 @@ console = Console()
 
 load_dotenv(Path.cwd() / ".env")
 
+TemplateType = Literal["all", "scaling", "certs", "monitoring", "dockerfiles"]
 
-def resolve_path(ctx: click.Context, path: str | Path) -> Path:
-    """Resolve a path relative to the working directory."""
-    if isinstance(path, str):
-        path = Path(path)
-    if not path.is_absolute():
-        base_dir = ctx.obj.get("base_dir", Path.cwd())
-        path = base_dir / path
-    return path
+
+def resolve_path(ctx: click.Context, path: str | None) -> Path:
+    """Resolve a path relative to the base directory."""
+    if not path:
+        return Path.cwd()
+    path = Path(path)
+    if path.is_absolute():
+        return path
+    return (ctx.obj.base_dir / path).resolve()
 
 
 @click.group()
-@click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
-@click.option("--verbose", "-v", is_flag=True, default=os.environ.get("VERBOSE", "false").lower() == "true", help="Enable verbose logging")
-@click.option("--quiet", "-q", is_flag=True, help="Enable quiet mode")
-@click.option("--directory", "-d", type=click.Path(exists=True, file_okay=False, dir_okay=True), 
-            default=os.environ.get("BASE_DIR", Path.cwd()),
-              help="Base directory for all file operations")
+@click.option("--config", "-c", help="Path to config file or docker-compose.yml")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress all output")
+@click.option("--base-dir", "-d", help="Base directory for configs")
 @click.pass_context
-def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, directory: str | None) -> None:
-    """Traefik Service Manager - Auto-scaling and service discovery for Docker microservices."""
-
-    # Setup logging
-    log_level = "DEBUG" if verbose else "WARNING" if quiet else "INFO"
-    setup_logging(log_level)
-
-    # Set base directory
-    ctx.ensure_object(dict)
-    ctx.obj["base_dir"] = Path(directory) if directory else Path.cwd()
+def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, base_dir: str | None) -> None:
+    """Traefik Service Manager (TSM) - Manage Traefik and service configurations."""
+    # Configure logging
+    log_level = logging.DEBUG if verbose else (logging.WARNING if quiet else logging.INFO)
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    logger.info("TSM started")
 
     # Load configuration
-    config_path = resolve_path(ctx, config) if config else None
-    ctx.obj["config"] = load_config(config_path)
+    config_path = Path(config) if config else None
+    logger.debug(f"Config path: {config_path}")
+    if config_path and config_path.suffix in {'.yml', '.yaml'} and 'compose' in config_path.name:
+        logger.debug(f"Creating config with compose file: {config_path}")
+        ctx.obj = Config(compose_file=str(config_path.absolute()), base_dir=config_path.parent.absolute())
+        logger.debug(f"Base dir set to: {ctx.obj.base_dir}")
+    else:
+        ctx.obj = load_config(config_path)
 
-    logger.info("TSM started", version="0.1.0", log_level=log_level)
+    # Set base directory if provided
+    if base_dir:
+        ctx.obj.base_dir = Path(base_dir)
+        logger.debug(f"Base dir overridden to: {ctx.obj.base_dir}")
 
+@cli.command()
+def steps():
+    """List all available commands."""
+    console.print("[green]Path to deploy a project:[/green]")
+    console.print("1. tsm init-config -n <project-name> -e <environment> -b <default-backend-host>")
+    console.print("2. tsm generate -f <compose-file> -o <output-dir> -d <domain-suffix> -h <external-host>")
+    console.print("3. tsm generate-certs -c <cert-config-file> -t <type> -n <name> -h <hosts> -o <output-dir> -p <profile> -b <bundle>")
+    console.print("4. tsm generate-usersfile -u <username> -p <password> -o <output-dir>")
+    console.print("5. docker-compose up -d")
 
 @cli.command()
 @click.option(
@@ -125,7 +144,7 @@ def generate(
 ) -> None:
     """Generate Traefik configuration from Docker Compose file."""
 
-    config: Config = ctx.obj["config"]
+    config: Config = ctx.obj
     compose_path = resolve_path(ctx, compose_file)
     output_path = resolve_path(ctx, output_dir)
 
@@ -231,9 +250,6 @@ def discover(ctx: click.Context, compose_file: str) -> None:
 
 @cli.command()
 @click.option(
-    "--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"), help="Docer Compose file path"
-)
-@click.option(
     "--scaling-config", "-r", default="scaling-rules.yml", help="Auto-scaling configuration file"
 )
 @click.option(
@@ -244,7 +260,6 @@ def discover(ctx: click.Context, compose_file: str) -> None:
 @click.pass_context
 def monitor(
     ctx: click.Context,
-    compose_file: str,
     scaling_config: str,
     prometheus_url: str,
     interval: int,
@@ -252,7 +267,8 @@ def monitor(
 ) -> None:
     """Start auto-scaling monitor."""
 
-    compose_path = Path(compose_file)
+    config: Config = ctx.obj
+    compose_path = resolve_path(ctx, config.compose_file)
     scaling_config_path = Path(scaling_config)
 
     if not compose_path.exists():
@@ -306,7 +322,7 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
     """Show service status."""
 
     docker_manager = DockerManager()
-    config: Config = ctx.obj["config"]
+    config: Config = ctx.obj
     compose_path = resolve_path(ctx, config.compose_file)
 
     if not compose_path.exists():
@@ -406,19 +422,24 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
 @cli.command("init-config")
 @click.option("--name", "-n", default=os.environ.get("NAME", "proxy"), help="Name of the project")
 @click.option("--environment", "-e", default=os.environ.get("ENVIRONMENT", "development"), help="Environment")
-@click.option("--compose-file", "-f", default=os.environ.get("COMPOSE_FILE", "docker-compose.yml"), help="Docker Compose file path")
 @click.option("--default-backend-host", "-b", default=os.environ.get("DEFAULT_BACKEND_HOST"), help="Default backend host for HTTP services")
+@click.option("--template", "-t", type=click.Choice(["all", "scaling", "certs", "monitoring", "dockerfiles"]), default="all", help="Which template to generate")
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite existing files")
 @click.pass_context
 def init_config(
     ctx: click.Context,
     name: str, 
     environment: str, 
-    compose_file: str, 
-    default_backend_host: str | None
+    default_backend_host: str | None,
+    template: TemplateType,
+    overwrite: bool
 ) -> None:
     """Initialize default configuration files."""
-
-    compose_path = resolve_path(ctx, compose_file)
+    config = ctx.obj
+    logger.debug(f"Config compose file: {config.compose_file}")
+    logger.debug(f"Config base dir: {config.base_dir}")
+    compose_path = Path(config.compose_file)
+    logger.debug(f"Compose path: {compose_path}")
     if not compose_path.exists():
         console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
         sys.exit(1)
@@ -430,27 +451,24 @@ def init_config(
         generator = ConfigGenerator(
             name=name, environment=environment, default_backend_host=default_backend_host
         )
-        base_dir = resolve_path(ctx, name)
-        created_files = generator.write_config_files(name=name, output_dir=base_dir, services=services)
+        base_dir = Path(name)
+        created_files = generator.generate_templates(base_dir, template, overwrite, compose_file=compose_path)
 
-        # Generate cert templates in cert-config
-        cert_config_dir = base_dir / "cert-config"
-        created_files.extend(generator.generate_cert_templates(cert_config_dir, force=True))
-        
-        # Copy certificate configuration template
-        cert_config = generator.copy_cert_config_template(base_dir)
-        created_files.append(cert_config)
+        if created_files:
+            console.print("[green]✓ Default configuration files created:[/green]")
+            for file_path in created_files:
+                console.print(f"  • {file_path}")
 
-        console.print("[green]✓ Default configuration files created:[/green]")
-        for file_path in created_files:
-            console.print(f"  • {file_path}")
-
-        console.print("\n[blue]Next steps:[/blue]")
-        console.print("  1. Edit cert-config.yml to configure certificates")
-        console.print("  2. Run 'tsm generate-certs -c cert-config.yml' to generate certificates")
-        console.print("  3. Edit scaling-rules.yml to configure auto-scaling")
-        console.print("  4. Run 'tsm generate' to create Traefik config")
-        console.print("  5. Run 'tsm monitor' to start auto-scaling")
+            console.print("\n[blue]Next steps:[/blue]")
+            if template in ["all", "certs"]:
+                console.print("  1. Edit cert-config.yml to configure certificates")
+                console.print("  2. Run 'tsm generate-certs -c cert-config.yml' to generate certificates")
+            if template in ["all", "scaling"]:
+                console.print("  3. Edit scaling-rules.yml to configure auto-scaling")
+            console.print("  4. Run 'tsm generate' to create Traefik config")
+            console.print("  5. Run 'tsm monitor' to start auto-scaling")
+        else:
+            console.print("[yellow]No new files were created. Use --overwrite to force regeneration.[/yellow]")
 
     except Exception as e:
         logger.error(f"Config initialization failed: {e}")
@@ -773,31 +791,6 @@ def generate_usersfile_cmd(ctx: click.Context, username: str, password: str, out
         console.print(f"[green]✓ Usersfile written to {output_path}[/green]")
     except Exception as e:
         console.print(f"[red]Failed to generate usersfile: {e}[/red]")
-
-
-@cli.command()
-@click.option("--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"), help="Docer Compose file path")
-@click.pass_context
-def up(ctx: click.Context, compose_file: str) -> None:
-    """Launch all services defined in the Docker Compose file."""
-    compose_path = resolve_path(ctx, compose_file)
-    if not compose_path.exists():
-        console.print(f"[red]Error: Compose file not found: {compose_path}[/red]")
-        sys.exit(1)
-    cmd = ["docker", "compose", "-f", str(compose_path), "up", "-d"]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        if result.returncode != 0:
-            # Fallback to docker-compose
-            cmd = ["docker-compose", "-f", str(compose_path), "up", "-d"]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        console.print("[green]✓ Services launched successfully[/green]")
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Error launching services: {e.stderr}[/red]")
-        sys.exit(1)
-    except FileNotFoundError:
-        console.print("[red]Error: docker compose or docker-compose not found in PATH[/red]")
-        sys.exit(1)
 
 
 def main() -> None:
