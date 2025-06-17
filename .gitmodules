@@ -1,0 +1,3 @@
+[submodule "proxy/config/traefik"]
+	path = proxy/config/traefik
+	url = https://bitbucket.org/financialpayments/fleet-forge-configuration.git
