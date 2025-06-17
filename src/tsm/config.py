@@ -130,7 +130,7 @@ class Config(BaseModel):
     # File paths
     compose_file: str = Field(default="docker-compose.yml")
     scaling_config_file: str = Field(default="scaling-rules.yml")
-    output_directory: str = Field(default="proxy/config/dynamic")
+    output_directory: str = Field(default="config/dynamic")
 
     def get_service_scaling_config(self, service_name: str) -> ScalingConfig:
         """Get scaling configuration for a service, using defaults if not specified."""
@@ -147,6 +147,12 @@ def load_config(path=None):
         return Config()
     try:
         path = Path(path)
+        # If the path ends with docker-compose.yml, treat it as a compose file
+        if path.name == "docker-compose.yml":
+            config = Config()
+            config.compose_file = str(path)
+            return config
+            
         with open(path) as f:
             data = yaml.safe_load(f)
         return Config(**data)

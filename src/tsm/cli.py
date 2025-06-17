@@ -229,9 +229,6 @@ def discover(ctx: click.Context, compose_file: str) -> None:
     console.print(table)
 
 
-
-
-
 @cli.command()
 @click.option(
     "--compose-file", "-f", default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"), help="Docer Compose file path"
@@ -334,10 +331,10 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
 
             if format == "json":
                 import json
-                console.print(json.dumps(service_info.__dict__, indent=2, default=str))
+                print(json.dumps(service_info.__dict__, indent=2, default=str))
             elif format == "yaml":
                 import yaml
-                console.print(yaml.dump(service_info.__dict__, default_flow_style=False))
+                print(yaml.dump(service_info.__dict__, default_flow_style=False))
             else:
                 # Table format
                 table = Table(title=f"Service Status: {service}")
@@ -356,37 +353,49 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
                 console.print(table)
         else:
             # Show all services from compose file
-            table = Table(title="Service Status")
-            table.add_column("Service", style="cyan")
-            table.add_column("Running", style="green")
-            table.add_column("Health", style="yellow")
-            table.add_column("Scaling", style="blue")
-            table.add_column("Priority", style="magenta")
-
+            services_info = {}
             for service_name in compose_services:
                 service_info = docker_manager.get_service_status(service_name)
                 if service_info:
-                    scaling = "✓" if service_info.scaling_enabled else "✗"
-                    priority = service_info.priority or "-"
+                    services_info[service_name] = service_info.__dict__
+                else:
+                    services_info[service_name] = {
+                        "name": service_name,
+                        "running_containers": 0,
+                        "total_containers": 0,
+                        "health_status": "not running",
+                        "scaling_enabled": False,
+                        "priority": None
+                    }
+
+            if format == "json":
+                import json
+                print(json.dumps(services_info, indent=2, default=str))
+            elif format == "yaml":
+                import yaml
+                print(yaml.dump(services_info, default_flow_style=False))
+            else:
+                # Table format
+                table = Table(title="Service Status")
+                table.add_column("Service", style="cyan")
+                table.add_column("Running", style="green")
+                table.add_column("Health", style="yellow")
+                table.add_column("Scaling", style="blue")
+                table.add_column("Priority", style="magenta")
+
+                for service_name, info in services_info.items():
+                    scaling = "✓" if info.get("scaling_enabled") else "✗"
+                    priority = info.get("priority") or "-"
 
                     table.add_row(
-                        service_info.name,
-                        f"{service_info.running_containers}/{service_info.total_containers}",
-                        service_info.health_status,
+                        info["name"],
+                        f"{info['running_containers']}/{info['total_containers']}",
+                        info["health_status"],
                         scaling,
                         priority,
                     )
-                else:
-                    # Service is defined in compose but not running
-                    table.add_row(
-                        service_name,
-                        "0/0",
-                        "not running",
-                        "-",
-                        "-",
-                    )
 
-            console.print(table)
+                console.print(table)
 
     except Exception as e:
         logger.error(f"Status check failed: {e}")
