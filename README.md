@@ -33,20 +33,29 @@ curl -LsSf https://raw.githubusercontent.com/auser/tsm/main/install.sh | sh
 pip install tsm
 ```
 
+**Whenever you are working with TSM as a git repository, you need to activate the python virtual environment.**
+
+```bash
+source .venv/bin/activate
+```
+
 ## Quickstart
 
 1. **Install Dependencies**
+
    ```bash
    tsm install-deps
    ```
 
-2. **Initialize Configuration**
+3. **Initialize Configuration**
+
    ```bash
    # Initialize with your Docker Compose file
    tsm init-config -f docker-compose.yml
    ```
 
-3. **Configure Certificates**
+5. **Configure Certificates**
+
    ```bash
    # Edit the generated cert-config.yml
    vim proxy/cert-config.yml
@@ -55,7 +64,7 @@ pip install tsm
    tsm generate-certs -c proxy/cert-config.yml
    ```
 
-4. **Generate Traefik Configuration**
+6. **Generate Traefik Configuration**
    ```bash
    # Generate initial configuration
    tsm generate
@@ -64,13 +73,13 @@ pip install tsm
    tsm generate --watch
    ```
 
-5. **Launch Services**
+7. **Launch Services**
    ```bash
    # Start all services
    tsm up
    ```
 
-6. **Monitor Services**
+8. **Monitor Services**
    ```bash
    # Check service status
    tsm status

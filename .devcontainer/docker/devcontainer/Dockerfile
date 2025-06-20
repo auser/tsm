@@ -1,4 +1,5 @@
-FROM ubuntu:24.04 
+# Stage 1: Builder
+FROM ubuntu:24.04 AS builder
 
 # Configure a SUDO non-root user (no password)
 ARG USERNAME=vscode
@@ -6,8 +7,8 @@ ARG USER_UID=1001
 ARG USER_GID=$USER_UID
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && apt-get update \
-    && apt-get install -y sudo zsh git bash \
+    && apt-get update -yq \
+    && apt-get install -y sudo zsh git bash make \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
@@ -48,7 +49,6 @@ RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master
     git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-completions && \
     sudo chsh -s /bin/zsh $USERNAME
 
-
 # Install gh
 RUN (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
     && sudo mkdir -p -m 755 /etc/apt/keyrings \
@@ -60,7 +60,7 @@ RUN (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y
     && sudo apt install gh -y
 
 # Install act
-RUN curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+RUN curl -LsSf https://raw.githubusercontent.com/nektos/act/master/install.sh | BINDIR=/usr/local/bin sudo sh
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -73,6 +73,34 @@ COPY ./scripts/postCreate.sh /home/$USERNAME/.postCreate.sh
 RUN sudo chown $USERNAME:$USERNAME /home/$USERNAME/.zshrc
 RUN sudo chmod 644 /home/$USERNAME/.zshrc
 
-RUN sudo usermod -aG docker $USERNAME
+RUN sudo chsh -s /bin/zsh $USERNAME
 
+# Stage 2: Final minimal image
+FROM ubuntu:24.04 AS final
+
+ARG USERNAME=vscode
+ARG USER_UID=1001
+ARG USER_GID=$USER_UID
+
+# Install runtime dependencies only
+RUN apt-get update -yq \
+    && apt-get install -y zsh git curl sudo \
+    && groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+COPY --from=builder /home/$USERNAME /home/$USERNAME
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /usr/local/go /usr/local/go
+COPY --from=builder /opt/configs /opt/configs
+COPY --from=builder /etc/apt/keyrings /etc/apt/keyrings
+COPY --from=builder /etc/sudoers.d/$USERNAME /etc/sudoers.d/$USERNAME
+
+USER $USERNAME
+ENV PATH=$PATH:/usr/local/go/bin
+
+WORKDIR /home/$USERNAME
+
+# Optionally, re-run chsh in case shell is not set
 RUN sudo chsh -s /bin/zsh $USERNAME
