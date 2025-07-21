@@ -4,7 +4,7 @@
 # Automatically downloads and installs the appropriate binary for your system
 # 
 # Usage as one-liner:
-#   curl -fsSL https://raw.githubusercontent.com/auser/proxy-deployer/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/auser/tsm/main/scripts/install.sh | bash
 #
 # Usage with options:
 #   ./install.sh -v v1.0.0 -d ~/.local/bin
@@ -58,7 +58,7 @@ Examples:
     $0 -d ~/.local/bin      # Install to custom directory
 
 One-liner installation:
-    curl -fsSL https://raw.githubusercontent.com/auser/proxy-deployer/main/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/auser/tsm/main/scripts/install.sh | bash
 
 EOF
 }
@@ -88,10 +88,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     done
 fi
 
-# Function to detect OS and architecture
+# Function to detect OS
 detect_system() {
     local os
-    local arch
     
     # Detect OS
     case "$(uname -s)" in
@@ -101,22 +100,14 @@ detect_system() {
         *)          print_error "Unsupported operating system: $(uname -s)" && exit 1 ;;
     esac
     
-    # Detect architecture
-    case "$(uname -m)" in
-        x86_64|amd64) arch="x86_64" ;;
-        aarch64|arm64) arch="arm64" ;;
-        armv7l) arch="armv7" ;;
-        *) print_error "Unsupported architecture: $(uname -m)" && exit 1 ;;
-    esac
-    
-    echo "${os}-${arch}"
+    echo "$os"
 }
 
 # Function to get latest version from GitHub API
 get_latest_version() {
     local version
     if [ "$VERSION" = "latest" ]; then
-        version=$(curl -s https://api.github.com/repos/auser/proxy-deployer/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+        version=$(curl -s https://api.github.com/repos/auser/tsm/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
         if [ -z "$version" ]; then
             print_error "Failed to get latest version from GitHub"
             exit 1
@@ -144,14 +135,14 @@ download_and_install() {
     
     # Determine binary name based on OS
     case "$system_info" in
-        linux-*) binary_name="tsm-linux" ;;
-        macos-*) binary_name="tsm-macos" ;;
-        windows-*) binary_name="tsm.exe" ;;
+        linux) binary_name="tsm-linux" ;;
+        macos) binary_name="tsm-macos" ;;
+        windows) binary_name="tsm.exe" ;;
         *) print_error "Unsupported system: $system_info" && exit 1 ;;
     esac
     
     # Construct download URL
-    download_url="https://github.com/auser/proxy-deployer/releases/download/${version}/${binary_name}"
+    download_url="https://github.com/auser/tsm/releases/download/${version}/${binary_name}"
     
     print_status "Downloading from: $download_url"
     
