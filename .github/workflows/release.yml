@@ -51,7 +51,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync
-          uv add pyinstaller --dev
+          uv add pyinstaller build --dev
 
       - name: Get version
         id: get_version
@@ -72,17 +72,15 @@ jobs:
 
       - name: Build distribution files
         run: |
-          source .venv/bin/activate
-          python -m build
+          uv run python -m build
 
       - name: Build binaries
         if: ${{ github.event.inputs.build_binaries != 'false' }}
         run: |
-          source .venv/bin/activate
-          pyinstaller --onefile --name tsm main.py
-          pyinstaller --onefile --name tsm-linux main.py
-          pyinstaller --onefile --name tsm.exe main.py
-          pyinstaller --onefile --name tsm-macos main.py
+          uv run pyinstaller --onefile --name tsm main.py
+          uv run pyinstaller --onefile --name tsm-linux main.py
+          uv run pyinstaller --onefile --name tsm.exe main.py
+          uv run pyinstaller --onefile --name tsm-macos main.py
 
       - name: List artifacts
         run: |

@@ -30,12 +30,11 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync
-          uv add pytest pytest-cov --dev
+          uv add pytest pytest-cov build --dev
 
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest tests/ --cov=src/tsm --cov-report=xml
+          uv run pytest tests/ --cov=src/tsm --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -65,17 +64,15 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync
-          uv add pyinstaller --dev
+          uv add pyinstaller build --dev
 
       - name: Build distribution files
         run: |
-          source .venv/bin/activate
-          python -m build
+          uv run python -m build
 
       - name: Build binary
         run: |
-          source .venv/bin/activate
-          pyinstaller --onefile --name tsm main.py
+          uv run pyinstaller --onefile --name tsm main.py
 
       - name: Test binary
         run: |
@@ -111,11 +108,10 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync
-          uv add black ruff mypy --dev
+          uv add black ruff mypy build --dev
 
       - name: Run linting
         run: |
-          source .venv/bin/activate
-          black --check src/ tests/
-          ruff check src/ tests/
-          mypy src/
+          uv run black --check src/ tests/
+          uv run ruff check src/ tests/
+          uv run mypy src/
