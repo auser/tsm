@@ -1,15 +1,24 @@
+import grp
+import os
+import pwd
 import shutil
 import sys
 from pathlib import Path
-import os
-import pwd
-import grp
 
 from loguru import logger
 
 
 def generate_certs(
-    type, name, common_name, hosts, output_dir, cert_config_dir, profile, domain, console, source_file=None
+    type,
+    name,
+    common_name,
+    hosts,
+    output_dir,
+    cert_config_dir,
+    profile,
+    domain,
+    console,
+    source_file=None,
 ):
     """
     Generate CA or service certificates using cfssl/cfssljson (replaces gen-certs.sh).
@@ -30,10 +39,10 @@ def generate_certs(
 
     output_dir = Path(output_dir)
     cert_config_dir = Path(cert_config_dir)
-    
+
     # Ensure the output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Create certificate-specific directory
     cert_dir = output_dir / name
     cert_dir.mkdir(parents=True, exist_ok=True)
@@ -53,19 +62,27 @@ def generate_certs(
         if source_pem_path.exists() and source_key_path.exists():
             shutil.copy(source_pem_path, target_path)
             shutil.copy(source_key_path, target_key_path)
-            console.print(f"[green]✓ Copied existing certificate and key from {base_name} to {target_path}[/green]")
+            console.print(
+                f"[green]✓ Copied existing certificate and key from {base_name} to {target_path}[/green]"
+            )
             return
         # If only cert exists but no key
         elif source_pem_path.exists():
             shutil.copy(source_pem_path, target_path)
-            console.print(f"[yellow]Warning: Certificate exists but key file {source_key_path} not found. Generating new key...[/yellow]")
+            console.print(
+                f"[yellow]Warning: Certificate exists but key file {source_key_path} not found. Generating new key...[/yellow]"
+            )
         # If only key exists but no cert
         elif source_key_path.exists():
             shutil.copy(source_key_path, target_key_path)
-            console.print(f"[yellow]Warning: Key exists but certificate file {source_pem_path} not found. Generating new certificate...[/yellow]")
+            console.print(
+                f"[yellow]Warning: Key exists but certificate file {source_pem_path} not found. Generating new certificate...[/yellow]"
+            )
         # If neither exists
         else:
-            console.print(f"[yellow]Warning: Source files for {base_name} not found. Generating new certificate and key...[/yellow]")
+            console.print(
+                f"[yellow]Warning: Source files for {base_name} not found. Generating new certificate and key...[/yellow]"
+            )
 
     cfssl = shutil.which("cfssl")
     cfssljson = shutil.which("cfssljson")
@@ -426,14 +443,14 @@ def copy_prod_certs_if_present():
 def set_file_permissions(file_path: Path, permissions: dict | None) -> None:
     """
     Set file permissions, owner, and group.
-    
+
     Args:
         file_path: Path to the file
         permissions: Dictionary containing:
             - mode: File permissions (octal, can be string or int)
             - owner: File owner
             - group: File group
-            
+
     If permissions is None, no changes are made.
     If mode is not specified, defaults to 0o644.
     If owner is specified but group is not, group defaults to root.
@@ -444,16 +461,14 @@ def set_file_permissions(file_path: Path, permissions: dict | None) -> None:
         return
 
     import os
-    import pwd
-    import grp
 
     try:
         # Convert mode to integer if it's a string
-        mode = permissions.get('mode')
+        mode = permissions.get("mode")
         if mode is not None:
             if isinstance(mode, str):
                 # Handle string octal values (e.g., "644" or "0o644")
-                if mode.startswith('0o'):
+                if mode.startswith("0o"):
                     mode = int(mode, 8)
                 else:
                     mode = int(mode, 8) if mode.isdigit() else int(mode)
@@ -466,8 +481,8 @@ def set_file_permissions(file_path: Path, permissions: dict | None) -> None:
         os.chmod(file_path, mode)
 
         # Set ownership if either owner or group is specified
-        owner = permissions.get('owner')
-        group = permissions.get('group')
+        owner = permissions.get("owner")
+        group = permissions.get("group")
         if owner is not None or group is not None:
             # Get current user/group as fallback
             current_uid = os.getuid()
@@ -503,7 +518,9 @@ def get_config_value(config: dict, key: str, cli_value: str | None, env_key: str
     return config.get(key, "")
 
 
-def generate_certs_from_config(config_path: str, output_dir: str, cert_config_dir: str, console, cli_args: dict = None) -> None:
+def generate_certs_from_config(
+    config_path: str, output_dir: str, cert_config_dir: str, console, cli_args: dict = None
+) -> None:
     """
     Generate certificates based on configuration file.
     """
@@ -514,10 +531,18 @@ def generate_certs_from_config(config_path: str, output_dir: str, cert_config_di
 
     # Get values from config, CLI args, or environment variables
     defaults = config.get("defaults", {})
-    common_name = get_config_value(defaults, "common_name", cli_args.get("common_name") if cli_args else None, "COMMON_NAME")
-    hosts = get_config_value(defaults, "hosts", cli_args.get("hosts") if cli_args else None, "HOSTS")
-    domain = get_config_value(defaults, "domain", cli_args.get("domain") if cli_args else None, "DOMAIN")
-    profile = get_config_value(defaults, "profile", cli_args.get("profile") if cli_args else None, "PROFILE")
+    common_name = get_config_value(
+        defaults, "common_name", cli_args.get("common_name") if cli_args else None, "COMMON_NAME"
+    )
+    hosts = get_config_value(
+        defaults, "hosts", cli_args.get("hosts") if cli_args else None, "HOSTS"
+    )
+    domain = get_config_value(
+        defaults, "domain", cli_args.get("domain") if cli_args else None, "DOMAIN"
+    )
+    profile = get_config_value(
+        defaults, "profile", cli_args.get("profile") if cli_args else None, "PROFILE"
+    )
 
     # Merge defaults into ca_config
     ca_config = {**defaults, **config.get("ca", {})}
@@ -533,7 +558,7 @@ def generate_certs_from_config(config_path: str, output_dir: str, cert_config_di
             cert_config_dir,
             ca_config.get("profile", profile),
             ca_config["domain"],
-            console
+            console,
         )
 
     # Generate individual certificates
@@ -564,5 +589,5 @@ def generate_certs_from_config(config_path: str, output_dir: str, cert_config_di
             cert_profile,
             cert_domain,
             console,
-            source_file
+            source_file,
         )

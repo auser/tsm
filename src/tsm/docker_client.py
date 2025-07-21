@@ -331,7 +331,7 @@ class DockerManager:
             "traefik_dynamic",
             "prometheus_data",
             "grafana_data",
-            "alertmanager_data"
+            "alertmanager_data",
         ]
 
         for volume_name in required_volumes:

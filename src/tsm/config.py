@@ -1,7 +1,7 @@
 """Configuration management for TSM."""
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import yaml
 from loguru import logger
@@ -155,7 +155,7 @@ def load_config(path=None):
             config.compose_file = str(path.absolute())
             config.base_dir = path.parent.absolute()
             return config
-            
+
         with open(path) as f:
             data = yaml.safe_load(f)
         return Config(**data)

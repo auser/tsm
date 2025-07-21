@@ -1,8 +1,6 @@
 """Tests for the utils module."""
 
-import pytest
-from pathlib import Path
-from tsm.utils import ensure_directory, merge_dicts, validate_port, validate_domain, get_local_ip
+from tsm.utils import ensure_directory, merge_dicts, validate_domain, validate_port
 
 
 def test_ensure_directory(tmp_path):
@@ -17,7 +15,7 @@ def test_ensure_directory_existing(tmp_path):
     """Test that ensure_directory works with existing directories."""
     existing_dir = tmp_path / "existing"
     existing_dir.mkdir()
-    
+
     ensure_directory(existing_dir)
     assert existing_dir.exists()
     assert existing_dir.is_dir()
@@ -25,27 +23,27 @@ def test_ensure_directory_existing(tmp_path):
 
 def test_validate_port():
     """Test validate_port function."""
-    assert validate_port(8080) == True
-    assert validate_port("8080") == True
-    assert validate_port(0) == False
-    assert validate_port(65536) == False
-    assert validate_port("invalid") == False
-    assert validate_port(None) == False
+    assert validate_port(8080)
+    assert validate_port("8080")
+    assert not validate_port(0)
+    assert not validate_port(65536)
+    assert not validate_port("invalid")
+    assert not validate_port(None)
 
 
 def test_validate_domain():
     """Test validate_domain function."""
-    assert validate_domain("example.com") == True
-    assert validate_domain("sub.example.com") == True
-    assert validate_domain("") == False
-    assert validate_domain("a" * 254) == False  # Too long
+    assert validate_domain("example.com")
+    assert validate_domain("sub.example.com")
+    assert not validate_domain("")
+    assert not validate_domain("a" * 254)  # Too long
 
 
 def test_merge_dicts():
     """Test merge_dicts function."""
     dict1 = {"a": 1, "b": 2}
     dict2 = {"b": 3, "c": 4}
-    
+
     result = merge_dicts(dict1, dict2)
     assert result == {"a": 1, "b": 3, "c": 4}
 
@@ -60,6 +58,6 @@ def test_merge_dicts_nested():
     """Test merge_dicts with nested dictionaries."""
     dict1 = {"a": {"x": 1, "y": 2}}
     dict2 = {"a": {"y": 3, "z": 4}}
-    
+
     result = merge_dicts(dict1, dict2)
-    assert result == {"a": {"x": 1, "y": 3, "z": 4}} 
+    assert result == {"a": {"x": 1, "y": 3, "z": 4}}

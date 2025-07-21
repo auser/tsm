@@ -1,8 +1,9 @@
 """Pytest configuration for TSM tests."""
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add src to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -17,4 +18,4 @@ def test_data_dir():
 @pytest.fixture(scope="session")
 def sample_compose_file():
     """Provide a sample docker-compose file for testing."""
-    return Path(__file__).parent / "docker-compose.sample.yml" 
+    return Path(__file__).parent / "docker-compose.sample.yml"

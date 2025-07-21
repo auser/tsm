@@ -2,7 +2,7 @@
 
 import shutil
 from pathlib import Path
-from typing import Any, TextIO, Literal
+from typing import Any, Literal, TextIO
 
 import yaml
 from loguru import logger
@@ -11,6 +11,7 @@ from .config import Config
 from .discovery import Service
 
 TEMPLATE_DIR = Path(__file__).parent.parent.parent / "templates"
+
 
 class ConfigGenerator:
     """Generate Traefik configuration from discovered services."""
@@ -414,7 +415,9 @@ class ConfigGenerator:
             indent=2,
         )
 
-    def write_config_files(self, name: str, output_dir: Path, services: list[Service]) -> list[Path]:
+    def write_config_files(
+        self, name: str, output_dir: Path, services: list[Service]
+    ) -> list[Path]:
         """Write all configuration files to the output directory."""
         written_files = []
 
@@ -423,7 +426,7 @@ class ConfigGenerator:
         output_dir.mkdir(parents=True, exist_ok=True)
         config_dir = output_dir / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
-        
+
         traefik_config_dir = config_dir / "traefik"
         traefik_config_dir.mkdir(parents=True, exist_ok=True)
 
@@ -655,6 +658,7 @@ class ConfigGenerator:
             scaling_file = output_dir / "scaling-rules.yml"
             if overwrite or not scaling_file.exists():
                 from tsm.discovery import ServiceDiscovery
+
                 services = []
                 if compose_file and compose_file.exists():
                     discovery = ServiceDiscovery()
@@ -670,6 +674,7 @@ class ConfigGenerator:
                         "priority": "medium",
                     }
                 import yaml
+
                 with open(scaling_file, "w") as f:
                     yaml.dump(scaling_rules, f, default_flow_style=False)
                 created_files.append(scaling_file)
@@ -678,7 +683,7 @@ class ConfigGenerator:
             # Generate cert templates in cert-config
             cert_config_dir = output_dir / "cert-config"
             created_files.extend(self.generate_cert_templates(cert_config_dir, force=overwrite))
-            
+
             # Copy certificate configuration template
             cert_config = self.copy_cert_config_template(output_dir)
             if overwrite or not cert_config.exists():

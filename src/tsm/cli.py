@@ -5,13 +5,11 @@ Traefik Service Manager (TSM) - CLI Interface
 A modern service discovery and auto-scaling tool for Traefik with Docker.
 """
 
-import os
-import shutil
-import subprocess
-import sys
 import logging
+import os
+import sys
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Literal
 
 import click
 from dotenv import load_dotenv
@@ -26,7 +24,6 @@ from .docker_client import DockerManager
 from .generator import ConfigGenerator
 from .monitoring import PrometheusClient
 from .scaling import AutoScaler
-from .utils import setup_logging
 
 console = Console()
 
@@ -51,7 +48,9 @@ def resolve_path(ctx: click.Context, path: str | None) -> Path:
 @click.option("--quiet", "-q", is_flag=True, help="Suppress all output")
 @click.option("--base-dir", "-d", help="Base directory for configs")
 @click.pass_context
-def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, base_dir: str | None) -> None:
+def cli(
+    ctx: click.Context, config: str | None, verbose: bool, quiet: bool, base_dir: str | None
+) -> None:
     """Traefik Service Manager (TSM) - Manage Traefik and service configurations."""
     # Configure logging
     log_level = logging.DEBUG if verbose else (logging.WARNING if quiet else logging.INFO)
@@ -65,9 +64,11 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, base
     # Load configuration
     config_path = Path(config) if config else None
     logger.debug(f"Config path: {config_path}")
-    if config_path and config_path.suffix in {'.yml', '.yaml'} and 'compose' in config_path.name:
+    if config_path and config_path.suffix in {".yml", ".yaml"} and "compose" in config_path.name:
         logger.debug(f"Creating config with compose file: {config_path}")
-        ctx.obj = Config(compose_file=str(config_path.absolute()), base_dir=config_path.parent.absolute())
+        ctx.obj = Config(
+            compose_file=str(config_path.absolute()), base_dir=config_path.parent.absolute()
+        )
         logger.debug(f"Base dir set to: {ctx.obj.base_dir}")
     else:
         ctx.obj = load_config(config_path)
@@ -77,15 +78,21 @@ def cli(ctx: click.Context, config: str | None, verbose: bool, quiet: bool, base
         ctx.obj.base_dir = Path(base_dir)
         logger.debug(f"Base dir overridden to: {ctx.obj.base_dir}")
 
+
 @cli.command()
 def steps():
     """List all available commands."""
     console.print("[green]Path to deploy a project:[/green]")
     console.print("1. tsm init-config -n <project-name> -e <environment> -b <default-backend-host>")
-    console.print("2. tsm generate -f <compose-file> -o <output-dir> -d <domain-suffix> -h <external-host>")
-    console.print("3. tsm generate-certs -c <cert-config-file> -t <type> -n <name> -h <hosts> -o <output-dir> -p <profile> -b <bundle>")
+    console.print(
+        "2. tsm generate -f <compose-file> -o <output-dir> -d <domain-suffix> -h <external-host>"
+    )
+    console.print(
+        "3. tsm generate-certs -c <cert-config-file> -t <type> -n <name> -h <hosts> -o <output-dir> -p <profile> -b <bundle>"
+    )
     console.print("4. tsm generate-usersfile -u <username> -p <password> -o <output-dir>")
     console.print("5. docker-compose up -d")
+
 
 @cli.command()
 @click.option(
@@ -209,9 +216,7 @@ def generate(
 
 
 @cli.command()
-@click.option(
-    "--compose-file", "-f", default="docker-compose.yml", help="Docer Compose file path"
-)
+@click.option("--compose-file", "-f", default="docker-compose.yml", help="Docer Compose file path")
 @click.pass_context
 def discover(ctx: click.Context, compose_file: str) -> None:
     """Discover services from Docker Compose file."""
@@ -347,9 +352,11 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
 
             if format == "json":
                 import json
+
                 print(json.dumps(service_info.__dict__, indent=2, default=str))
             elif format == "yaml":
                 import yaml
+
                 print(yaml.dump(service_info.__dict__, default_flow_style=False))
             else:
                 # Table format
@@ -381,14 +388,16 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
                         "total_containers": 0,
                         "health_status": "not running",
                         "scaling_enabled": False,
-                        "priority": None
+                        "priority": None,
                     }
 
             if format == "json":
                 import json
+
                 print(json.dumps(services_info, indent=2, default=str))
             elif format == "yaml":
                 import yaml
+
                 print(yaml.dump(services_info, default_flow_style=False))
             else:
                 # Table format
@@ -421,18 +430,31 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
 
 @cli.command("init-config")
 @click.option("--name", "-n", default=os.environ.get("NAME", "proxy"), help="Name of the project")
-@click.option("--environment", "-e", default=os.environ.get("ENVIRONMENT", "development"), help="Environment")
-@click.option("--default-backend-host", "-b", default=os.environ.get("DEFAULT_BACKEND_HOST"), help="Default backend host for HTTP services")
-@click.option("--template", "-t", type=click.Choice(["all", "scaling", "certs", "monitoring", "dockerfiles"]), default="all", help="Which template to generate")
+@click.option(
+    "--environment", "-e", default=os.environ.get("ENVIRONMENT", "development"), help="Environment"
+)
+@click.option(
+    "--default-backend-host",
+    "-b",
+    default=os.environ.get("DEFAULT_BACKEND_HOST"),
+    help="Default backend host for HTTP services",
+)
+@click.option(
+    "--template",
+    "-t",
+    type=click.Choice(["all", "scaling", "certs", "monitoring", "dockerfiles"]),
+    default="all",
+    help="Which template to generate",
+)
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite existing files")
 @click.pass_context
 def init_config(
     ctx: click.Context,
-    name: str, 
-    environment: str, 
+    name: str,
+    environment: str,
     default_backend_host: str | None,
     template: TemplateType,
-    overwrite: bool
+    overwrite: bool,
 ) -> None:
     """Initialize default configuration files."""
     config = ctx.obj
@@ -452,7 +474,9 @@ def init_config(
             name=name, environment=environment, default_backend_host=default_backend_host
         )
         base_dir = Path(name)
-        created_files = generator.generate_templates(base_dir, template, overwrite, compose_file=compose_path)
+        created_files = generator.generate_templates(
+            base_dir, template, overwrite, compose_file=compose_path
+        )
 
         if created_files:
             console.print("[green]✓ Default configuration files created:[/green]")
@@ -462,18 +486,23 @@ def init_config(
             console.print("\n[blue]Next steps:[/blue]")
             if template in ["all", "certs"]:
                 console.print("  1. Edit cert-config.yml to configure certificates")
-                console.print("  2. Run 'tsm generate-certs -c cert-config.yml' to generate certificates")
+                console.print(
+                    "  2. Run 'tsm generate-certs -c cert-config.yml' to generate certificates"
+                )
             if template in ["all", "scaling"]:
                 console.print("  3. Edit scaling-rules.yml to configure auto-scaling")
             console.print("  4. Run 'tsm generate' to create Traefik config")
             console.print("  5. Run 'tsm monitor' to start auto-scaling")
         else:
-            console.print("[yellow]No new files were created. Use --overwrite to force regeneration.[/yellow]")
+            console.print(
+                "[yellow]No new files were created. Use --overwrite to force regeneration.[/yellow]"
+            )
 
     except Exception as e:
         logger.error(f"Config initialization failed: {e}")
         console.print(f"[red]Error: {e}[/red]")
         sys.exit(1)
+
 
 @cli.command()
 def sync_config() -> None:
@@ -622,7 +651,13 @@ def generate_hosts(
     help="Do not use cache when building the image",
 )
 @click.pass_context
-def build_dockerfiles(ctx: click.Context, dockerfiles_dir: str, tag_prefix: str, context_dir: Optional[str], no_cache: bool) -> None:
+def build_dockerfiles(
+    ctx: click.Context,
+    dockerfiles_dir: str,
+    tag_prefix: str,
+    context_dir: str | None,
+    no_cache: bool,
+) -> None:
     """Build all Dockerfiles in the dockerfiles directory with the specified build context."""
     from .certs import copy_prod_certs_if_present
 
@@ -735,7 +770,7 @@ def generate_certs(
     bundle: str | None,
 ) -> None:
     """Generate CA or service certificates using cfssl/cfssljson (replaces gen-certs.sh)."""
-    from .certs import generate_certs_cli, generate_certs_from_config
+    from .certs import generate_certs_from_config
 
     console.print(f"[blue]Generating certs with config: {config}[/blue]")
     console.print(f"[blue]Generating certs with output_dir: {output_dir}[/blue]")
@@ -746,20 +781,20 @@ def generate_certs(
         config_path = resolve_path(ctx, config)
         output_path = resolve_path(ctx, output_dir)
         cert_config_path = resolve_path(ctx, cert_config_dir)
-        
+
         cli_args = {
-            'type': type,
-            'name': name,
-            'common_name': common_name,
-            'hosts': hosts,
-            'profile': profile,
-            'domain': domain,
-            'bundle': bundle,
+            "type": type,
+            "name": name,
+            "common_name": common_name,
+            "hosts": hosts,
+            "profile": profile,
+            "domain": domain,
+            "bundle": bundle,
         }
         generate_certs_from_config(config_path, output_path, cert_config_path, console, cli_args)
     else:
-        console.print(f"[red]No config file provided[/red]")
-        console.print(f"[red]Run 'tsm init-config' to create a default configuration[/red]")
+        console.print("[red]No config file provided[/red]")
+        console.print("[red]Run 'tsm init-config' to create a default configuration[/red]")
         sys.exit(1)
 
 
@@ -775,10 +810,13 @@ def copy_certs(ctx: click.Context, from_dir: str, to_dir: str) -> None:
 
 
 @cli.command("generate-usersfile")
-@click.option("--username", '-u', required=True, help="Username for basic auth")
-@click.option("--password", '-p', required=True, help="Password for basic auth")
+@click.option("--username", "-u", required=True, help="Username for basic auth")
+@click.option("--password", "-p", required=True, help="Password for basic auth")
 @click.option(
-    "--output", '-o', default=os.environ.get("OUTPUT_DIR", "./config/usersfile"), help="Output path for usersfile (e.g., ./config/usersfile)"
+    "--output",
+    "-o",
+    default=os.environ.get("OUTPUT_DIR", "./config/usersfile"),
+    help="Output path for usersfile (e.g., ./config/usersfile)",
 )
 @click.pass_context
 def generate_usersfile_cmd(ctx: click.Context, username: str, password: str, output: str) -> None:
