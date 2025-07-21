@@ -23,4 +23,4 @@ def generate_usersfile(username: str, password: str, output_path: str) -> None:
         logger.info(f"Usersfile written to {output_path}")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to generate usersfile: {e.stderr}")
-        raise RuntimeError(f"Failed to generate usersfile: {e.stderr}")
+        raise RuntimeError(f"Failed to generate usersfile: {e.stderr}") from e

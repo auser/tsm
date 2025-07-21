@@ -92,7 +92,7 @@ class ServiceDiscovery:
             with open(compose_file) as f:
                 compose_data = yaml.safe_load(f)
         except Exception as e:
-            raise RuntimeError(f"Failed to parse compose file: {e}")
+            raise RuntimeError(f"Failed to parse compose file: {e}") from e
 
         if "services" not in compose_data:
             self.logger.warning("No services found in compose file")

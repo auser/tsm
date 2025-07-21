@@ -66,7 +66,7 @@ class DockerManager:
             self.client.ping()
             self.logger.info("Connected to Docker daemon")
         except DockerException as e:
-            raise RuntimeError(f"Failed to connect to Docker: {e}")
+            raise RuntimeError(f"Failed to connect to Docker: {e}") from e
 
         # Check if we're in swarm mode
         try:
@@ -197,9 +197,9 @@ class DockerManager:
         except subprocess.CalledProcessError as e:
             error_msg = f"Failed to scale service {service_name}: {e.stderr}"
             self.logger.error(error_msg)
-            raise RuntimeError(error_msg)
+            raise RuntimeError(error_msg) from e
         except FileNotFoundError:
-            raise RuntimeError("docker-compose command not found")
+            raise RuntimeError("docker-compose command not found") from None
 
     def scale_swarm_service(self, service_name: str, replicas: int) -> None:
         """Scale a service in Docker Swarm."""
@@ -212,7 +212,7 @@ class DockerManager:
         except subprocess.CalledProcessError as e:
             error_msg = f"Failed to scale swarm service {service_name}: {e.stderr}"
             self.logger.error(error_msg)
-            raise RuntimeError(error_msg)
+            raise RuntimeError(error_msg) from e
 
     def get_container_metrics(self, container_id: str) -> ContainerMetrics | None:
         """Get metrics for a container."""
@@ -305,7 +305,7 @@ class DockerManager:
             self.logger.info("Cleaned up Docker system")
         except DockerException as e:
             self.logger.error(f"Failed to clean Docker system: {e}")
-            raise RuntimeError(f"Failed to clean Docker system: {e}")
+            raise RuntimeError(f"Failed to clean Docker system: {e}") from e
 
     def clean_volumes(self) -> None:
         """Clean up unused Docker volumes."""
