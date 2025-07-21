@@ -309,7 +309,12 @@ def generate_certs_cli(
             console,
         )
         return
-    cert_types = ["ca", "server", "client", "peer"]
+    if not output_dir:
+        console.print(
+            "[red]Error: Output directory is required[/red]",
+            style="red",
+        )
+        return
     if type == "all" or not type:
         # Generate CA in the base cert directory
         ca_name = name if name else "ca"

@@ -70,12 +70,12 @@ class DockerManager:
 
         # Check if we're in swarm mode
         try:
-            swarm_info = self.client.api.inspect_swarm()
+            self.client.api.inspect_swarm()
             self.swarm_mode = True
             self.logger.info("Docker swarm mode detected")
-        except APIError:
+        except Exception:
             self.swarm_mode = False
-            self.logger.info("Docker compose mode detected")
+            self.logger.info("Docker swarm mode not detected")
 
     def is_swarm_mode(self) -> bool:
         """Check if Docker is running in swarm mode."""
@@ -205,7 +205,7 @@ class DockerManager:
         """Scale a service in Docker Swarm."""
         try:
             cmd = ["docker", "service", "scale", f"{service_name}={replicas}"]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
 
             self.logger.info(f"Scaled swarm service {service_name} to {replicas} replicas")
 

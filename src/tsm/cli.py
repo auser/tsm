@@ -96,47 +96,27 @@ def steps():
 
 @cli.command()
 @click.option(
-    "--compose-file",
     "-f",
-    default=os.environ.get("SERVICES_COMPOSE_FILE", "docker-compose.yml"),
-    help="Docker Compose file path (env: SERVICES_COMPOSE_FILE)",
+    "--compose-file",
+    default="docker-compose.yml",
+    help="Docker Compose file path",
 )
 @click.option(
-    "--output-dir",
     "-o",
-    default=os.environ.get("OUTPUT_DIR", "config/traefik/dynamic"),
-    help="Output directory for generated configs (env: OUTPUT_DIR)",
+    "--output-dir",
+    default="config/traefik/dynamic",
+    help="Output directory for generated config",
 )
 @click.option(
-    "--domain-suffix",
     "-d",
-    default=os.environ.get("DOMAIN_SUFFIX", ".ddev"),
-    help="Domain suffix for services (env: DOMAIN_SUFFIX)",
+    "--domain-suffix",
+    default=".ddev",
+    help="Domain suffix for services",
 )
 @click.option(
-    "--external-host",
     "-h",
-    default=os.environ.get("EXTERNAL_HOST"),
-    help="External host IP address (env: EXTERNAL_HOST)",
-)
-@click.option(
-    "--swarm-mode",
-    is_flag=True,
-    default=os.environ.get("SWARM_MODE", "false").lower() == "true",
-    help="Generate for Docker Swarm mode (env: SWARM_MODE)",
-)
-@click.option(
-    "--watch",
-    "-w",
-    is_flag=True,
-    default=os.environ.get("WATCH", "false").lower() == "true",
-    help="Watch for file changes and regenerate (env: WATCH)",
-)
-@click.option(
-    "--default-backend-host",
-    "-b",
-    default=os.environ.get("DEFAULT_BACKEND_HOST"),
-    help="Default backend host for HTTP services (env: DEFAULT_BACKEND_HOST)",
+    "--external-host",
+    help="External host for services",
 )
 @click.pass_context
 def generate(
@@ -145,13 +125,9 @@ def generate(
     output_dir: str,
     domain_suffix: str,
     external_host: str | None,
-    swarm_mode: bool,
-    watch: bool,
-    default_backend_host: str | None,
 ) -> None:
     """Generate Traefik configuration from Docker Compose file."""
 
-    config: Config = ctx.obj
     compose_path = resolve_path(ctx, compose_file)
     output_path = resolve_path(ctx, output_dir)
 
@@ -167,8 +143,8 @@ def generate(
     generator = ConfigGenerator(
         domain_suffix=domain_suffix,
         external_host=external_host,
-        swarm_mode=swarm_mode,
-        default_backend_host=default_backend_host,
+        swarm_mode=False, # This option is removed from the command, so it's hardcoded to False
+        default_backend_host=None, # This option is removed from the command, so it's hardcoded to None
     )
 
     def generate_configs() -> None:
@@ -194,25 +170,9 @@ def generate(
         except Exception as e:
             logger.error(f"Configuration generation failed: {e}")
             console.print(f"[red]Error: {e}[/red]")
-            if not watch:
-                sys.exit(1)
+            sys.exit(1)
 
-    # Generate once
     generate_configs()
-
-    if watch:
-        console.print(f"[yellow]Watching {compose_path} for changes...[/yellow]")
-        console.print("[dim]Press Ctrl+C to stop[/dim]")
-
-        from .watcher import FileWatcher
-
-        watcher = FileWatcher(compose_path, generate_configs)
-
-        try:
-            watcher.start()
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Stopping file watcher...[/yellow]")
-            watcher.stop()
 
 
 @cli.command()
@@ -408,7 +368,7 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
                 table.add_column("Scaling", style="blue")
                 table.add_column("Priority", style="magenta")
 
-                for service_name, info in services_info.items():
+                for _service_name, info in services_info.items():
                     scaling = "✓" if info.get("scaling_enabled") else "✗"
                     priority = info.get("priority") or "-"
 
@@ -467,9 +427,6 @@ def init_config(
         sys.exit(1)
 
     try:
-        discovery = ServiceDiscovery()
-        services = discovery.discover_services(compose_path)
-
         generator = ConfigGenerator(
             name=name, environment=environment, default_backend_host=default_backend_host
         )
