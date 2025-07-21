@@ -90,6 +90,34 @@ jobs:
           echo "Binary files:"
           find dist/ -name "tsm*" -type f
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag, or use empty string if none exists
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # Generate recent changes (last 20 commits excluding version bumps)
+          if [ -n "$PREVIOUS_TAG" ]; then
+            RECENT_CHANGES=$(git log --oneline "$PREVIOUS_TAG"..HEAD | grep -v "Bump version" | head -20 | sed 's/^/- /')
+          else
+            RECENT_CHANGES=$(git log --oneline | grep -v "Bump version" | head -20 | sed 's/^/- /')
+          fi
+
+          # Generate full changelog
+          if [ -n "$PREVIOUS_TAG" ]; then
+            FULL_CHANGELOG=$(git log --oneline "$PREVIOUS_TAG"..HEAD | sed 's/^/- /')
+          else
+            FULL_CHANGELOG=$(git log --oneline | sed 's/^/- /')
+          fi
+
+          echo "recent_changes<<EOF" >> $GITHUB_OUTPUT
+          echo "$RECENT_CHANGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "full_changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$FULL_CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -98,7 +126,7 @@ jobs:
           body: |
             ## What's Changed
 
-            $(git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD | grep -v "Bump version" | head -20)
+            ${{ steps.changelog.outputs.recent_changes }}
 
             ## Installation
 
@@ -136,7 +164,7 @@ jobs:
 
             ## Full Changelog
 
-            $(git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD)
+            ${{ steps.changelog.outputs.full_changelog }}
           files: |
             dist/*.whl
             dist/*.tar.gz
