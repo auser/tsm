@@ -141,6 +141,13 @@ download_and_install() {
         *) print_error "Unsupported system: $system_info" && exit 1 ;;
     esac
     
+    # Check if we're on ARM64 and warn about potential architecture mismatch
+    if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
+        print_warning "Detected ARM64 architecture. The binary may not be compatible."
+        print_warning "If you encounter 'Exec format error', the binary was built for x86_64."
+        print_warning "Consider using pip installation instead: pip install tsm"
+    fi
+    
     # Construct download URL
     download_url="https://github.com/auser/tsm/releases/download/${version}/${binary_name}"
     

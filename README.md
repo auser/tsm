@@ -21,11 +21,7 @@ TSM is a comprehensive tool for managing Traefik proxy configurations in Docker 
 curl -fsSL https://raw.githubusercontent.com/auser/tsm/main/scripts/install.sh | bash
 ```
 
-### Using Homebrew (macOS/Linux)
-
-```bash
-brew install auser/tap/tsm
-```
+**Note**: The standalone binaries are built for x86_64 architecture. If you're on ARM64 (Apple Silicon, ARM servers), you may encounter compatibility issues. In that case, use the pip installation method instead.
 
 ### Using pip
 
