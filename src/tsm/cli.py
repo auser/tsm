@@ -143,8 +143,8 @@ def generate(
     generator = ConfigGenerator(
         domain_suffix=domain_suffix,
         external_host=external_host,
-        swarm_mode=False, # This option is removed from the command, so it's hardcoded to False
-        default_backend_host=None, # This option is removed from the command, so it's hardcoded to None
+        swarm_mode=False,  # This option is removed from the command, so it's hardcoded to False
+        default_backend_host=None,  # This option is removed from the command, so it's hardcoded to None
     )
 
     def generate_configs() -> None:
