@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tsm"
-version = "1.0.1"
+version = "1.0.2"
 description = "Traefik Service Manager - Auto-scaling and service discovery for Docker microservices"
 readme = "README.md"
 license = { text = "MIT" }
