@@ -67,23 +67,23 @@ release-bump:
 		exit 1; \
 	fi
 	@if [ -n "$(TYPE)" ]; then \
-		$(eval CURRENT_VERSION := $(shell grep '^version = ' pyproject.toml | cut -d'"' -f2)) \
-		$(eval MAJOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f1)) \
-		$(eval MINOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f2)) \
-		$(eval PATCH := $(shell echo $(CURRENT_VERSION) | cut -d. -f3)) \
-		$(eval NEW_VERSION := $(shell case $(TYPE) in \
-			major) echo $$((MAJOR + 1)).0.0 ;; \
-			minor) echo $(MAJOR).$$((MINOR + 1)).0 ;; \
-			patch) echo $(MAJOR).$(MINOR).$$((PATCH + 1)) ;; \
-		esac)) \
+		CURRENT_VERSION=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+		MAJOR=$$(echo $$CURRENT_VERSION | cut -d. -f1); \
+		MINOR=$$(echo $$CURRENT_VERSION | cut -d. -f2); \
+		PATCH=$$(echo $$CURRENT_VERSION | cut -d. -f3); \
+		case "$(TYPE)" in \
+			major) NEW_VERSION=$$((MAJOR + 1)).0.0 ;; \
+			minor) NEW_VERSION=$$MAJOR.$$((MINOR + 1)).0 ;; \
+			patch) NEW_VERSION=$$MAJOR.$$MINOR.$$((PATCH + 1)) ;; \
+		esac; \
 	else \
-		$(eval NEW_VERSION := $(VERSION)) \
-	fi
-	@echo "Bumping version to $(NEW_VERSION)..."
-	@sed -i.bak 's/^version = ".*"/version = "$(NEW_VERSION)"/' pyproject.toml
-	@sed -i.bak 's/"TSM", ".*"/"TSM", "$(NEW_VERSION)"/' src/tsm/cli.py
-	@rm -f pyproject.toml.bak src/tsm/cli.py.bak
-	@echo "Version bumped to $(NEW_VERSION)"
+		NEW_VERSION=$(VERSION); \
+	fi; \
+	echo "Bumping version to $$NEW_VERSION..."; \
+	sed -i.bak "s/^version = \".*\"/version = \"$$NEW_VERSION\"/" pyproject.toml; \
+	sed -i.bak "s/\"TSM\", \".*\"/\"TSM\", \"$$NEW_VERSION\"/" src/tsm/cli.py; \
+	rm -f pyproject.toml.bak src/tsm/cli.py.bak; \
+	echo "Version bumped to $$NEW_VERSION"
 
 # Create git tag and push
 .PHONY: release-tag
@@ -93,25 +93,25 @@ release-tag:
 		exit 1; \
 	fi
 	@if [ -n "$(TYPE)" ]; then \
-		$(eval CURRENT_VERSION := $(shell grep '^version = ' pyproject.toml | cut -d'"' -f2)) \
-		$(eval MAJOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f1)) \
-		$(eval MINOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f2)) \
-		$(eval PATCH := $(shell echo $(CURRENT_VERSION) | cut -d. -f3)) \
-		$(eval NEW_VERSION := $(shell case $(TYPE) in \
-			major) echo $$((MAJOR + 1)).0.0 ;; \
-			minor) echo $(MAJOR).$$((MINOR + 1)).0 ;; \
-			patch) echo $(MAJOR).$(MINOR).$$((PATCH + 1)) ;; \
-		esac)) \
+		CURRENT_VERSION=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+		MAJOR=$$(echo $$CURRENT_VERSION | cut -d. -f1); \
+		MINOR=$$(echo $$CURRENT_VERSION | cut -d. -f2); \
+		PATCH=$$(echo $$CURRENT_VERSION | cut -d. -f3); \
+		case "$(TYPE)" in \
+			major) NEW_VERSION=$$((MAJOR + 1)).0.0 ;; \
+			minor) NEW_VERSION=$$MAJOR.$$((MINOR + 1)).0 ;; \
+			patch) NEW_VERSION=$$MAJOR.$$MINOR.$$((PATCH + 1)) ;; \
+		esac; \
 	else \
-		$(eval NEW_VERSION := $(VERSION)) \
-	fi
-	@echo "Creating git tag v$(NEW_VERSION)..."
-	@git add pyproject.toml src/tsm/cli.py
-	@git commit -m "Bump version to $(NEW_VERSION)"
-	@git tag -a v$(NEW_VERSION) -m "Release v$(NEW_VERSION)"
-	@git push origin main
-	@git push origin v$(NEW_VERSION)
-	@echo "Tag v$(NEW_VERSION) created and pushed"
+		NEW_VERSION=$(VERSION); \
+	fi; \
+	echo "Creating git tag v$$NEW_VERSION..."; \
+	git add pyproject.toml src/tsm/cli.py; \
+	git commit -m "Bump version to $$NEW_VERSION"; \
+	git tag -a v$$NEW_VERSION -m "Release v$$NEW_VERSION"; \
+	git push origin main; \
+	git push origin v$$NEW_VERSION; \
+	echo "Tag v$$NEW_VERSION created and pushed"
 
 # Full release process
 .PHONY: release-full
@@ -151,21 +151,21 @@ release-github:
 		exit 1; \
 	fi
 	@if [ -n "$(TYPE)" ]; then \
-		$(eval CURRENT_VERSION := $(shell grep '^version = ' pyproject.toml | cut -d'"' -f2)) \
-		$(eval MAJOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f1)) \
-		$(eval MINOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f2)) \
-		$(eval PATCH := $(shell echo $(CURRENT_VERSION) | cut -d. -f3)) \
-		$(eval NEW_VERSION := $(shell case $(TYPE) in \
-			major) echo $$((MAJOR + 1)).0.0 ;; \
-			minor) echo $(MAJOR).$$((MINOR + 1)).0 ;; \
-			patch) echo $(MAJOR).$(MINOR).$$((PATCH + 1)) ;; \
-		esac)) \
+		CURRENT_VERSION=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+		MAJOR=$$(echo $$CURRENT_VERSION | cut -d. -f1); \
+		MINOR=$$(echo $$CURRENT_VERSION | cut -d. -f2); \
+		PATCH=$$(echo $$CURRENT_VERSION | cut -d. -f3); \
+		case "$(TYPE)" in \
+			major) NEW_VERSION=$$((MAJOR + 1)).0.0 ;; \
+			minor) NEW_VERSION=$$MAJOR.$$((MINOR + 1)).0 ;; \
+			patch) NEW_VERSION=$$MAJOR.$$MINOR.$$((PATCH + 1)) ;; \
+		esac; \
 	else \
-		$(eval NEW_VERSION := $(VERSION)) \
-	fi
-	@echo "Creating GitHub release for v$(NEW_VERSION)..."
-	@./scripts/create_release.sh $(NEW_VERSION) $(RELEASE_NOTES_FILE)
-	@echo "GitHub release created for v$(NEW_VERSION)"
+		NEW_VERSION=$(VERSION); \
+	fi; \
+	echo "Creating GitHub release for v$$NEW_VERSION..."; \
+	./scripts/create_release.sh $$NEW_VERSION $(RELEASE_NOTES_FILE); \
+	echo "GitHub release created for v$$NEW_VERSION"
 
 # Full automated release process
 .PHONY: release-auto
@@ -255,21 +255,21 @@ release-github-action:
 		exit 1; \
 	fi
 	@if [ -n "$(TYPE)" ]; then \
-		$(eval CURRENT_VERSION := $(shell grep '^version = ' pyproject.toml | cut -d'"' -f2)) \
-		$(eval MAJOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f1)) \
-		$(eval MINOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f2)) \
-		$(eval PATCH := $(shell echo $(CURRENT_VERSION) | cut -d. -f3)) \
-		$(eval NEW_VERSION := $(shell case $(TYPE) in \
-			major) echo $$((MAJOR + 1)).0.0 ;; \
-			minor) echo $(MAJOR).$$((MINOR + 1)).0 ;; \
-			patch) echo $(MAJOR).$(MINOR).$$((PATCH + 1)) ;; \
-		esac)) \
+		CURRENT_VERSION=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+		MAJOR=$$(echo $$CURRENT_VERSION | cut -d. -f1); \
+		MINOR=$$(echo $$CURRENT_VERSION | cut -d. -f2); \
+		PATCH=$$(echo $$CURRENT_VERSION | cut -d. -f3); \
+		case "$(TYPE)" in \
+			major) NEW_VERSION=$$((MAJOR + 1)).0.0 ;; \
+			minor) NEW_VERSION=$$MAJOR.$$((MINOR + 1)).0 ;; \
+			patch) NEW_VERSION=$$MAJOR.$$MINOR.$$((PATCH + 1)) ;; \
+		esac; \
 	else \
-		$(eval NEW_VERSION := $(VERSION)) \
-	fi
-	@echo "Triggering GitHub Action release for v$(NEW_VERSION)..."
-	@gh workflow run release.yml --field version=$(NEW_VERSION) --field release_type=$(TYPE) --field build_binaries=true
-	@echo "GitHub Action release triggered for v$(NEW_VERSION)"
+		NEW_VERSION=$(VERSION); \
+	fi; \
+	echo "Triggering GitHub Action release for v$$NEW_VERSION..."; \
+	gh workflow run release.yml --field version=$$NEW_VERSION --field release_type=$(TYPE) --field build_binaries=true; \
+	echo "GitHub Action release triggered for v$$NEW_VERSION"
 
 .PHONY: test-github-action
 test-github-action:

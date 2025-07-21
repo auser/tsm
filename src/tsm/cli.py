@@ -530,7 +530,7 @@ def version() -> None:
     table.add_column("Component", style="cyan")
     table.add_column("Version", style="green")
 
-    table.add_row("TSM", "0.1.0")
+    table.add_row("TSM", "1.0.1")
     table.add_row("Python", platform.python_version())
     table.add_row("Platform", platform.system())
 
