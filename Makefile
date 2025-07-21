@@ -179,7 +179,7 @@ build-binary:
 	@echo "Building standalone binary..."
 	@echo "Installing PyInstaller if not available..."
 	@uv add pyinstaller --dev
-	@source .venv/bin/activate && pyinstaller --onefile --name tsm main.py
+	@uv run pyinstaller --onefile --name tsm main.py
 	@echo "Binary created: dist/tsm"
 
 .PHONY: build-binary-debug
@@ -187,7 +187,7 @@ build-binary-debug:
 	@echo "Building standalone binary with debug info..."
 	@echo "Installing PyInstaller if not available..."
 	@uv add pyinstaller --dev
-	@source .venv/bin/activate && pyinstaller --onefile --name tsm --debug all main.py
+	@uv run pyinstaller --onefile --name tsm --debug all main.py
 	@echo "Debug binary created: dist/tsm"
 
 .PHONY: build-binary-cross
@@ -203,7 +203,7 @@ build-binary-linux:
 	@echo "Building Linux binary..."
 	@echo "Installing PyInstaller if not available..."
 	@uv add pyinstaller --dev
-	@source .venv/bin/activate && pyinstaller --onefile --name tsm-linux main.py
+	@uv run pyinstaller spec/tsm-linux.spec
 	@echo "Linux binary created: dist/tsm-linux"
 
 .PHONY: build-binary-windows
@@ -211,7 +211,7 @@ build-binary-windows:
 	@echo "Building Windows binary..."
 	@echo "Installing PyInstaller if not available..."
 	@uv add pyinstaller --dev
-	@source .venv/bin/activate && pyinstaller --onefile --name tsm.exe main.py
+	@uv run pyinstaller spec/tsm.exe.spec
 	@echo "Windows binary created: dist/tsm.exe"
 
 .PHONY: build-binary-macos
@@ -219,7 +219,7 @@ build-binary-macos:
 	@echo "Building macOS binary..."
 	@echo "Installing PyInstaller if not available..."
 	@uv add pyinstaller --dev
-	@source .venv/bin/activate && pyinstaller --onefile --name tsm-macos main.py
+	@uv run pyinstaller spec/tsm-macos.spec
 	@echo "macOS binary created: dist/tsm-macos"
 
 .PHONY: build-all-binaries
@@ -229,7 +229,7 @@ build-all-binaries: build-binary-linux build-binary-windows build-binary-macos
 .PHONY: clean-binaries
 clean-binaries:
 	@echo "Cleaning binary build artifacts..."
-	@rm -rf build/ dist/ *.spec
+	@rm -rf build/ dist/
 	@echo "Binary artifacts cleaned"
 
 # Complete release with binaries

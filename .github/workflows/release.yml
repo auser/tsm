@@ -78,9 +78,9 @@ jobs:
         if: ${{ github.event.inputs.build_binaries != 'false' }}
         run: |
           uv run pyinstaller --onefile --name tsm main.py
-          uv run pyinstaller --onefile --name tsm-linux main.py
-          uv run pyinstaller --onefile --name tsm.exe main.py
-          uv run pyinstaller --onefile --name tsm-macos main.py
+          uv run pyinstaller spec/tsm-linux.spec
+          uv run pyinstaller spec/tsm.exe.spec
+          uv run pyinstaller spec/tsm-macos.spec
 
       - name: List artifacts
         run: |
