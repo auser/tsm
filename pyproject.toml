@@ -8,7 +8,7 @@ version = "1.0.3"
 description = "Traefik Service Manager - Auto-scaling and service discovery for Docker microservices"
 readme = "README.md"
 license = { text = "MIT" }
-authors = [{ name = "Your Name", email = "admin@herringbank.com" }]
+authors = [{ name = "Ari Lerner", email = "me@ari.io" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
