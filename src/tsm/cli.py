@@ -83,7 +83,7 @@ def cli(
 def steps():
     """List all available commands."""
     console.print("[green]Path to deploy a project:[/green]")
-    console.print("1. tsm init-config -n <project-name> -e <environment> -b <default-backend-host>")
+    console.print("1. tsm config init -n <project-name> -e <environment> -b <default-backend-host>")
     console.print(
         "2. tsm generate -f <compose-file> -o <output-dir> -d <domain-suffix> -h <external-host>"
     )
@@ -242,7 +242,7 @@ def monitor(
 
     if not scaling_config_path.exists():
         console.print(f"[red]Error: Scaling config not found: {scaling_config_path}[/red]")
-        console.print("[yellow]Run 'tsm init-config' to create a default configuration[/yellow]")
+        console.print("[yellow]Run 'tsm config init' to create a default configuration[/yellow]")
         sys.exit(1)
 
     # Initialize components
@@ -387,8 +387,13 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
         console.print(f"[red]Error: {e}[/red]")
         sys.exit(1)
 
+@cli.group()
+@click.pass_context
+def config(ctx: click.Context) -> None:
+    """Config commands."""
+    pass
 
-@cli.command("init-config")
+@config.command("init")
 @click.option("--name", "-n", default=os.environ.get("NAME", "proxy"), help="Name of the project")
 @click.option(
     "--environment", "-e", default=os.environ.get("ENVIRONMENT", "development"), help="Environment"
@@ -408,7 +413,7 @@ def status(ctx: click.Context, service: str | None, detailed: bool, format: str)
 )
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite existing files")
 @click.pass_context
-def init_config(
+def init(
     ctx: click.Context,
     name: str,
     environment: str,

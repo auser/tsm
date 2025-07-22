@@ -29,6 +29,9 @@ services:
       - "traefik.http.services.traefik-proxy.loadbalancer.server.port=443"
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.middlewares=admin-secure@file"
+    deploy:
+      mode: replicated
+      replicas: 2
 
   static:
     image: fp/static
@@ -44,6 +47,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.static.rule=Host(`static.ddev`) || Host(`static.herringbank.com`)"
       - "traefik.http.routers.static.middlewares=web-standard@file"
+    deploy:
+      mode: replicated
+      replicas: 2
 
   # Prometheus for metrics collection
   prometheus:
@@ -75,6 +81,9 @@ services:
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.ddev`) || Host(`prometheus.herringbank.com`)"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
       - "traefik.http.routers.prometheus.middlewares=monitoring-secure@file"
+    deploy:
+      mode: replicated
+      replicas: 2
 
   # Grafana for visualization
   grafana:
@@ -103,6 +112,9 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`grafana.ddev`) || Host(`grafana.herringbank.com`)"
       - "traefik.http.services.grafana.loadbalancer.server.port=4000"
       - "traefik.http.routers.grafana.middlewares=monitoring-secure@file"
+    deploy:
+      mode: replicated
+      replicas: 2
 
   # AlertManager for alerting
   # alertmanager:
@@ -142,6 +154,9 @@ services:
       - default
     labels:
       - "traefik.enable=false"
+    deploy:
+      mode: replicated
+      replicas: 1
 
   # cAdvisor for container metrics
   cadvisor:
@@ -167,6 +182,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.ddev`) || Host(`cadvisor.herringbank.com`)"
       - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
+    deploy:
+      mode: replicated
+      replicas: 1
 
 volumes:
   prometheus_data:
